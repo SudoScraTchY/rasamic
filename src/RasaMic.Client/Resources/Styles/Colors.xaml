@@ -1,0 +1,39 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- Rasa design tokens: warm graphite ramp (broadcast desk at night), amber tally accent.
+         Contrast ratios verified WCAG AA (see .tools/gen-ui-assets.ps1 output in docs/design.md). -->
+
+    <Color x:Key="Primary">#96660A</Color>
+    <Color x:Key="PrimaryDark">#E2A33C</Color>
+    <Color x:Key="Secondary">#A4593C</Color>
+    <Color x:Key="SecondaryDark">#D98A6C</Color>
+    <Color x:Key="Accent">#C08A20</Color>
+    <Color x:Key="AccentDark">#E2A33C</Color>
+
+    <Color x:Key="Background">#F5F3EE</Color>
+    <Color x:Key="BackgroundDark">#171512</Color>
+    <Color x:Key="Surface">#FFFFFF</Color>
+    <Color x:Key="SurfaceDark">#201D19</Color>
+    <Color x:Key="Surface2">#ECE8E0</Color>
+    <Color x:Key="Surface2Dark">#282420</Color>
+    <Color x:Key="Border">#DDD6CA</Color>
+    <Color x:Key="BorderDark">#322D26</Color>
+
+    <Color x:Key="TextPrimary">#201D18</Color>
+    <Color x:Key="TextPrimaryDark">#EDEAE3</Color>
+    <Color x:Key="TextSecondary">#5C564B</Color>
+    <Color x:Key="TextSecondaryDark">#A69F92</Color>
+    <Color x:Key="TextMuted">#6E675C</Color>
+    <Color x:Key="TextMutedDark">#948C7F</Color>
+
+    <Color x:Key="Success">#3E7A3E</Color>
+    <Color x:Key="SuccessDark">#8FBE8F</Color>
+    <Color x:Key="Warning">#96660A</Color>
+    <Color x:Key="WarningDark">#E2A33C</Color>
+    <Color x:Key="Error">#B3402F</Color>
+    <Color x:Key="ErrorDark">#E08573</Color>
+
+</ResourceDictionary>

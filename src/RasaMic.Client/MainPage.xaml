@@ -1,0 +1,189 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:helpers="clr-namespace:RasaMic.Client.Helpers"
+             x:Class="RasaMic.Client.MainPage"
+             Title="Rasa — رسا">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="16" MaximumWidthRequest="520" HorizontalOptions="Center">
+
+            <Grid ColumnDefinitions="*,Auto">
+                <VerticalStackLayout Spacing="4">
+                    <HorizontalStackLayout Spacing="8">
+                        <Label Text="Rasa" Style="{StaticResource Wordmark}" />
+                        <Label Text="رسا" FontSize="16" VerticalOptions="Center"
+                               TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}" />
+                    </HorizontalStackLayout>
+                    <Label Text="Your phone, a clear microphone" Style="{StaticResource Tagline}" />
+                </VerticalStackLayout>
+                <Label Grid.Column="1" Text="0.1" Style="{StaticResource Mono}" VerticalOptions="Start" />
+            </Grid>
+
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="8">
+                    <Grid ColumnDefinitions="8,*" ColumnSpacing="8">
+                        <BoxView x:Name="TallyDot" Style="{StaticResource Tally}" />
+                        <Label Grid.Column="1" x:Name="StatusLabel" Text="Not connected" Style="{StaticResource Status}" />
+                    </Grid>
+                    <Label x:Name="PairingCodeLabel" Text="" Style="{StaticResource MonoLarge}"
+                           HorizontalOptions="Center" IsVisible="False" />
+                    <Label x:Name="PairingHintLabel" Style="{StaticResource Hint}" IsVisible="False"
+                           HorizontalOptions="Center"
+                           Text="Verify this code matches the one shown on the server" />
+                </VerticalStackLayout>
+            </Border>
+
+            <VerticalStackLayout x:Name="ConnectRoot" Spacing="16">
+                <Border Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="12">
+                        <HorizontalStackLayout Spacing="8">
+                            <Label Text="{x:Static helpers:IconFont.Server}" Style="{StaticResource Icon}" />
+                            <Label Text="Connect" Style="{StaticResource SectionTitle}" VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+
+                        <Label x:Name="DiscoveryTitle" Style="{StaticResource Hint}"
+                               Text="Looking for servers on your network…" />
+                        <VerticalStackLayout x:Name="FoundServers" Spacing="8" />
+
+                        <Label Style="{StaticResource Hint}" Text="Or enter the address manually" />
+                        <Entry x:Name="ServerIpEntry" Placeholder="Server IP" Keyboard="Url" />
+                        <Entry x:Name="PayloadEntry" Placeholder="Pairing payload (optional)" />
+
+                        <Grid ColumnDefinitions="*,20" ColumnSpacing="8" HeightRequest="44">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnTransportsToggled" />
+                            </Grid.GestureRecognizers>
+                            <Label Text="Other transports (USB, Bluetooth, Wi-Fi Direct)" Style="{StaticResource RowLabel}" />
+                            <Label Grid.Column="1" x:Name="TransportsChevron" Text="{x:Static helpers:IconFont.ChevronDown}" Style="{StaticResource Icon}" />
+                        </Grid>
+                        <VerticalStackLayout x:Name="TransportsContent" Spacing="12" IsVisible="False">
+                                <Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="8" HeightRequest="44">
+                                    <Label Text="{x:Static helpers:IconFont.Usb}" Style="{StaticResource Icon}" />
+                                    <Label Grid.Column="1" x:Name="UsbLabel" Text="USB (adb reverse)" Style="{StaticResource RowLabel}" />
+                                    <Switch Grid.Column="2" x:Name="UsbSwitch" VerticalOptions="Center" />
+                                </Grid>
+                                <Label x:Name="UsbHint" Style="{StaticResource Hint}"
+                                       Text="USB: run `adb reverse tcp:47300 tcp:47300` on the PC, then use server IP 127.0.0.1" />
+
+                                <Grid x:Name="BtRow" ColumnDefinitions="20,*,Auto" ColumnSpacing="8" HeightRequest="44" IsVisible="False">
+                                    <Label Text="{x:Static helpers:IconFont.Bluetooth}" Style="{StaticResource Icon}" />
+                                    <Label Grid.Column="1" Text="Bluetooth" Style="{StaticResource RowLabel}" />
+                                    <Switch Grid.Column="2" x:Name="BtSwitch" Toggled="OnBtToggled" VerticalOptions="Center" />
+                                </Grid>
+                                <Picker x:Name="BtDevicePicker" IsVisible="False" />
+                                <Label x:Name="BtHint" IsVisible="False" Style="{StaticResource Hint}"
+                                       Text="Bluetooth: pair the phone with the PC in Android settings, run `rasamicd --bluetooth` on the PC, then pick the PC above" />
+
+                                <Button x:Name="WfdButton" Text="Create Wi-Fi Direct group" Style="{StaticResource SecondaryButton}" IsVisible="False" Clicked="OnWfdClicked" />
+                                <Label x:Name="WfdStatus" Text="" Style="{StaticResource Hint}" IsVisible="False" />
+                        </VerticalStackLayout>
+
+                        <Button x:Name="ConnectButton" Text="Connect" Clicked="OnConnectClicked" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+
+            <VerticalStackLayout x:Name="LiveRoot" Spacing="16" IsVisible="False">
+                <Border Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="12">
+                        <HorizontalStackLayout Spacing="8">
+                            <Label Text="{x:Static helpers:IconFont.Mic}" Style="{StaticResource Icon}" />
+                            <Label Text="Microphone" Style="{StaticResource SectionTitle}" VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+
+                        <Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="8" HeightRequest="44">
+                            <Label Text="{x:Static helpers:IconFont.MicOff}" Style="{StaticResource Icon}" />
+                            <Label Grid.Column="1" Text="Mute" Style="{StaticResource RowLabel}" />
+                            <Switch Grid.Column="2" x:Name="MuteSwitch" Toggled="OnMuteToggled" VerticalOptions="Center" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="20,*" ColumnSpacing="8" HeightRequest="44">
+                            <Label Text="{x:Static helpers:IconFont.Gain}" Style="{StaticResource Icon}" />
+                            <Label Grid.Column="1" Style="{StaticResource RowLabel}"
+                                   Text="{Binding Source={x:Reference GainSlider}, Path=Value, StringFormat='Gain: {0:F0} dB'}" />
+                        </Grid>
+                        <Slider x:Name="GainSlider" Minimum="-12" Maximum="24" Value="0" ValueChanged="OnGainChanged" />
+
+                        <Grid ColumnDefinitions="20,*" ColumnSpacing="8" HeightRequest="44">
+                            <Label Text="{x:Static helpers:IconFont.Bitrate}" Style="{StaticResource Icon}" />
+                            <Label Grid.Column="1" Text="Quality (bitrate)" Style="{StaticResource RowLabel}" />
+                        </Grid>
+                        <Picker x:Name="BitratePicker" SelectedIndexChanged="OnBitrateChanged">
+                            <Picker.Items>
+                                <x:String>16 kbps — data saver</x:String>
+                                <x:String>32 kbps — balanced</x:String>
+                                <x:String>64 kbps — high</x:String>
+                                <x:String>96 kbps — max</x:String>
+                            </Picker.Items>
+                            <Picker.SelectedIndex>1</Picker.SelectedIndex>
+                        </Picker>
+
+                        <Label x:Name="StatsLabel" Text="" Style="{StaticResource Mono}" />
+
+                        <Grid ColumnDefinitions="*,20" ColumnSpacing="8" HeightRequest="44">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnProcessingToggled" />
+                            </Grid.GestureRecognizers>
+                            <Label Text="Audio processing" Style="{StaticResource RowLabel}" />
+                            <Label Grid.Column="1" x:Name="ProcessingChevron" Text="{x:Static helpers:IconFont.ChevronDown}" Style="{StaticResource Icon}" />
+                        </Grid>
+                        <VerticalStackLayout x:Name="ProcessingContent" Spacing="12" IsVisible="False">
+                                <Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="8" HeightRequest="44">
+                                    <Label Text="{x:Static helpers:IconFont.NoiseSuppression}" Style="{StaticResource Icon}" />
+                                    <Label Grid.Column="1" Text="Noise suppression" Style="{StaticResource RowLabel}" />
+                                    <Switch Grid.Column="2" x:Name="NsSwitch" IsToggled="True" Toggled="OnNsToggled" VerticalOptions="Center" />
+                                </Grid>
+                                <Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="8" HeightRequest="44">
+                                    <Label Text="{x:Static helpers:IconFont.Agc}" Style="{StaticResource Icon}" />
+                                    <Label Grid.Column="1" Text="Auto gain (AGC)" Style="{StaticResource RowLabel}" />
+                                    <Switch Grid.Column="2" x:Name="AgcSwitch" IsToggled="True" Toggled="OnAgcToggled" VerticalOptions="Center" />
+                                </Grid>
+
+                                <Grid x:Name="PolarLabel" ColumnDefinitions="20,*" ColumnSpacing="8" HeightRequest="44" IsVisible="False">
+                                    <Label Text="{x:Static helpers:IconFont.Polar}" Style="{StaticResource Icon}" />
+                                    <Label Grid.Column="1" Text="Mic pattern" Style="{StaticResource RowLabel}" />
+                                </Grid>
+                                <Picker x:Name="PolarPicker" IsVisible="False" SelectedIndexChanged="OnPolarChanged">
+                                    <Picker.Items>
+                                        <x:String>Omnidirectional</x:String>
+                                        <x:String>Subcardioid</x:String>
+                                        <x:String>Cardioid</x:String>
+                                        <x:String>Hypercardioid</x:String>
+                                    </Picker.Items>
+                                    <Picker.SelectedIndex>0</Picker.SelectedIndex>
+                                </Picker>
+
+                                <Grid x:Name="HdCaptureRow" ColumnDefinitions="20,*,Auto" ColumnSpacing="8" HeightRequest="44" IsVisible="False">
+                                    <Label Text="{x:Static helpers:IconFont.Capture}" Style="{StaticResource Icon}" />
+                                    <Label Grid.Column="1" Text="Mic direction capture" Style="{StaticResource RowLabel}" />
+                                    <Switch Grid.Column="2" x:Name="HdCaptureSwitch" VerticalOptions="Center" />
+                                </Grid>
+                                <Picker x:Name="DirectionPicker" IsVisible="False">
+                                    <Picker.Items>
+                                        <x:String>Auto (device default)</x:String>
+                                        <x:String>Front mic</x:String>
+                                        <x:String>Back mic</x:String>
+                                        <x:String>External mic</x:String>
+                                    </Picker.Items>
+                                    <Picker.SelectedIndex>0</Picker.SelectedIndex>
+                                </Picker>
+                                <Label x:Name="HdCaptureHint" IsVisible="False" Style="{StaticResource Hint}"
+                                       Text="AudioRecord enables mic direction (Android 10+) at slightly higher latency than the default AAudio path" />
+
+                                <Grid x:Name="StereoRow" ColumnDefinitions="20,*,Auto" ColumnSpacing="8" HeightRequest="44" IsVisible="False">
+                                    <Label Text="{x:Static helpers:IconFont.Stereo}" Style="{StaticResource Icon}" />
+                                    <Label Grid.Column="1" Text="Stereo capture (AAudio)" Style="{StaticResource RowLabel}" />
+                                    <Switch Grid.Column="2" x:Name="StereoSwitch" VerticalOptions="Center" />
+                                </Grid>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Button x:Name="DisconnectButton" Text="Disconnect" Style="{StaticResource SecondaryButton}" Clicked="OnConnectClicked" />
+            </VerticalStackLayout>
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

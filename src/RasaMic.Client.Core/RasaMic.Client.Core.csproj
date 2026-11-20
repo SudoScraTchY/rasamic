@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>RasaMic.Client.Core</RootNamespace>
+    <Description>Client session logic, shared by the MAUI app and desktop tests.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\RasaMic.Core\RasaMic.Core.csproj" />
+  </ItemGroup>
+</Project>

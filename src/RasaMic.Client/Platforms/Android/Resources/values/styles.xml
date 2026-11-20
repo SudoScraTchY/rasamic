@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Maui.MainTheme" parent="Maui.MainTheme.Base">
+        <item name="android:statusBarColor">@color/rasaBar</item>
+        <item name="android:navigationBarColor">@color/rasaBar</item>
+        <item name="android:windowLightStatusBar">@bool/rasaLightBars</item>
+        <item name="android:colorControlNormal">@color/rasaUnderline</item>
+        <item name="android:colorControlActivated">@color/rasaUnderlineActive</item>
+        <item name="colorControlNormal">@color/rasaUnderline</item>
+        <item name="colorControlActivated">@color/rasaUnderlineActive</item>
+    </style>
+</resources>

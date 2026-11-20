@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFrameworks>net11.0-android;net11.0-ios</TargetFrameworks>
+		<OutputType>Exe</OutputType>
+		<RootNamespace>RasaMic.Client</RootNamespace>
+		<UseMaui>true</UseMaui>
+		<SingleProject>true</SingleProject>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<MauiXamlInflator>SourceGen</MauiXamlInflator>
+
+		<ApplicationTitle>Rasa</ApplicationTitle>
+		<ApplicationId>dev.rasamic.client</ApplicationId>
+		<ApplicationDisplayVersion>0.1</ApplicationDisplayVersion>
+		<ApplicationVersion>1</ApplicationVersion>
+
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">26.0</SupportedOSPlatformVersion>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+		<!-- Fastdev omits the assembly store from the APK; plain `dotnet build` must yield an installable package. -->
+		<EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#171512" />
+		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#171512" BaseSize="128,128" />
+		<MauiImage Include="Resources\Images\*" />
+		<MauiFont Include="Resources\Fonts\*" />
+		<MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Maui.Controls" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Debug" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\RasaMic.Client.Core\RasaMic.Client.Core.csproj" />
+		<ProjectReference Include="..\RasaMic.Audio\RasaMic.Audio.csproj" />
+	</ItemGroup>
+
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+		<AndroidNativeLibrary Include="..\..\native\rasamic-native\build-android-arm64-v8a\librasamic_native.so" Abi="arm64-v8a" />
+		<AndroidNativeLibrary Include="..\..\native\rasamic-native\build-android-x86_64\librasamic_native.so" Abi="x86_64" />
+	</ItemGroup>
+
+	<!-- Built on macOS via tools/scripts/build-native-ios.sh; absent on dev boxes without it. -->
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios' And Exists('..\..\native\rasamic-native\build-ios-arm64\librasamic_native.dylib')">
+		<NativeReference Include="..\..\native\rasamic-native\build-ios-arm64\librasamic_native.dylib" Kind="Dynamic" />
+	</ItemGroup>
+
+</Project>

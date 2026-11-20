@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#96660A</color>
+    <color name="colorPrimaryDark">#171512</color>
+    <color name="colorAccent">#E2A33C</color>
+    <color name="rasaBar">#F5F3EE</color>
+    <color name="rasaUnderline">#DDD6CA</color>
+    <color name="rasaUnderlineActive">#96660A</color>
+</resources>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="rasaBar">#171512</color>
+    <color name="rasaUnderline">#322D26</color>
+    <color name="rasaUnderlineActive">#E2A33C</color>
+    <bool name="rasaLightBars">false</bool>
+</resources>
