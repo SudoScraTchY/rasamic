@@ -1,0 +1,55 @@
+name: driver
+
+on:
+  push:
+    paths:
+      - 'drivers/windows/**'
+      - '.github/workflows/driver.yml'
+  pull_request:
+    paths:
+      - 'drivers/windows/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+    strategy:
+      matrix:
+        platform: [x64, ARM64]
+    steps:
+      - uses: actions/checkout@v4
+
+      # WDK MSBuild targets + headers/libs. The runner already has VS2022
+      # Build Tools and the Windows SDK; the WDK package wires the
+      # WindowsKernelModeDriver10.0 toolset into MSBuild.
+      - name: Install WDK
+        shell: pwsh
+        run: choco install windowsdriverkit -y --no-progress
+
+      - name: Build driver
+        shell: pwsh
+        working-directory: drivers/windows
+        run: |
+          $msbuild = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
+            -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
+          $args = @('VirtualAudioDriver.sln', '/p:Configuration=Release', "/p:Platform=${{ matrix.platform }}")
+          if ('${{ matrix.platform }}' -eq 'ARM64') {
+            # Mirror build.bat: ARM64 skips InfVerif/ApiValidator/signing.
+            $args += @(
+              '/p:RunCodeAnalysis=false', '/p:DriverTargetPlatform=Universal',
+              '/p:UseInfVerifierEx=false', '/p:ValidateDrivers=false', '/p:StampInf=false',
+              '/p:ApiValidator_Enable=false', '/p:InfVerif_Enable=false',
+              '/p:DisableVerification=true', '/p:SignMode=Off',
+              '/p:ApiValidator_ExcludedTargets=ARM64', '/p:EnableInf2cat=false')
+          } else {
+            # Test-sign in CI so the package is installable on testsigning machines.
+            $args += @('/p:SignMode=TestSign', '/p:TestCertificate=CN=RasaMic Test')
+          }
+          & $msbuild @args
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: rasamic-driver-${{ matrix.platform }}
+          path: drivers/windows/${{ matrix.platform }}/Release/package/

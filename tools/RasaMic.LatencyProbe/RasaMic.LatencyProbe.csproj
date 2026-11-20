@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <AssemblyName>rasamic-latencyprobe</AssemblyName>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\RasaMic.Client.Core\RasaMic.Client.Core.csproj" />
+    <ProjectReference Include="..\..\src\RasaMic.Audio\RasaMic.Audio.csproj" />
+    <ProjectReference Include="..\..\src\RasaMic.Server\RasaMic.Server.csproj" />
+  </ItemGroup>
+</Project>

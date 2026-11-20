@@ -1,0 +1,49 @@
+name: perf
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  perf-gates:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '11.0.x'
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Fetch rnnoise model weights
+        shell: bash
+        run: |
+          cd native/third_party/rnnoise
+          hash=$(cat model_version)
+          curl -fL --retry 3 -o "rnnoise_data-$hash.tar.gz" "https://media.xiph.org/rnnoise/models/rnnoise_data-$hash.tar.gz"
+          echo "$hash  rnnoise_data-$hash.tar.gz" | sha256sum -c -
+          tar xzf "rnnoise_data-$hash.tar.gz"
+      - name: Build native (win-x64)
+        run: |
+          cmake -S native/rasamic-native -B native/rasamic-native/build-win-x64 -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build native/rasamic-native/build-win-x64
+      - name: Zero-allocation hot path gate
+        run: dotnet test tests/RasaMic.Audio.Tests -c Release --filter "FullyQualifiedName~HotPathAlloc"
+      - name: Pipeline latency gate (p95 < 50 ms)
+        run: dotnet run --project tools/RasaMic.LatencyProbe -c Release -- 30 50
+      - name: Module benchmarks
+        run: dotnet run --project tools/RasaMic.Benchmarks -c Release -- --job short --filter '*' --exporters json --artifacts perf-results
+      - name: Perf regression gate (>10% vs this runner's baseline fails)
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File tools/perf-gate.ps1 -ResultsDir perf-results
+      - uses: actions/upload-artifact@v4
+        with:
+          name: perf-results-win-x64
+          path: perf-results
+      - uses: actions/upload-artifact@v4
+        if: hashFiles('candidate-baseline.json') != ''
+        with:
+          name: perf-candidate-baseline
+          path: candidate-baseline.json

@@ -1,0 +1,38 @@
+name: ios
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 11.0.x
+      - name: Deps
+        run: brew install ninja
+      - name: Fetch rnnoise model weights
+        shell: bash
+        run: |
+          cd native/third_party/rnnoise
+          hash=$(cat model_version)
+          curl -fL --retry 3 -o "rnnoise_data-$hash.tar.gz" "https://media.xiph.org/rnnoise/models/rnnoise_data-$hash.tar.gz"
+          echo "$hash  rnnoise_data-$hash.tar.gz" | shasum -a 256 -c -
+          tar xzf "rnnoise_data-$hash.tar.gz"
+      - name: Native lib (iOS arm64)
+        run: |
+          cmake -S native/rasamic-native -B native/rasamic-native/build-ios-arm64 -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0
+          cmake --build native/rasamic-native/build-ios-arm64
+      - name: MAUI workload
+        run: dotnet workload install maui
+      - name: Build iOS app (unsigned)
+        run: dotnet build src/RasaMic.Client -f net11.0-ios -c Release
+      # Signing + TestFlight need an Apple Developer account (user action, M3).

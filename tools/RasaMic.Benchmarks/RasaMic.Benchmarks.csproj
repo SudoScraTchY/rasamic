@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+    <ProjectReference Include="..\..\src\RasaMic.Audio\RasaMic.Audio.csproj" />
+    <ProjectReference Include="..\..\src\RasaMic.Core\RasaMic.Core.csproj" />
+    <ProjectReference Include="..\..\src\RasaMic.Protocol\RasaMic.Protocol.csproj" />
+  </ItemGroup>
+</Project>

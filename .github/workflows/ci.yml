@@ -1,0 +1,173 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  managed-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '11.0.x'
+      - name: Build
+        run: dotnet build RasaMic.slnx -c Release
+      - name: Protocol + Core + GUI headless tests (no native dependency)
+        run: |
+          dotnet test tests/RasaMic.Protocol.Tests -c Release --no-build
+          dotnet test tests/RasaMic.Core.Tests -c Release --no-build
+          dotnet test tests/RasaMic.Server.App.Tests -c Release --no-build
+
+  macos-managed-tests:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '11.0.x'
+      - name: Build
+        run: dotnet build RasaMic.slnx -c Release
+      - name: Protocol + Core + GUI headless tests (no native dependency)
+        run: |
+          dotnet test tests/RasaMic.Protocol.Tests -c Release --no-build
+          dotnet test tests/RasaMic.Core.Tests -c Release --no-build
+          dotnet test tests/RasaMic.Server.App.Tests -c Release --no-build
+
+  windows-native-and-audio-tests:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '11.0.x'
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Fetch rnnoise model weights
+        shell: bash
+        run: |
+          cd native/third_party/rnnoise
+          hash=$(cat model_version)
+          curl -fL --retry 3 -o "rnnoise_data-$hash.tar.gz" "https://media.xiph.org/rnnoise/models/rnnoise_data-$hash.tar.gz"
+          echo "$hash  rnnoise_data-$hash.tar.gz" | sha256sum -c -
+          tar xzf "rnnoise_data-$hash.tar.gz"
+      - name: Build native (win-x64)
+        run: |
+          cmake -S native/rasamic-native -B native/rasamic-native/build-win-x64 -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build native/rasamic-native/build-win-x64
+      - name: Audio + integration tests
+        run: |
+          dotnet test tests/RasaMic.Audio.Tests -c Release
+          dotnet test tests/RasaMic.IntegrationTests -c Release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rasamic-native-win-x64
+          path: native/rasamic-native/build-win-x64/rasamic_native.dll
+
+  linux-native-and-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '11.0.x'
+      - name: Fetch rnnoise model weights
+        run: |
+          cd native/third_party/rnnoise
+          hash=$(cat model_version)
+          curl -fL --retry 3 -o "rnnoise_data-$hash.tar.gz" "https://media.xiph.org/rnnoise/models/rnnoise_data-$hash.tar.gz"
+          echo "$hash  rnnoise_data-$hash.tar.gz" | sha256sum -c -
+          tar xzf "rnnoise_data-$hash.tar.gz"
+      - name: Build native (linux-x64)
+        run: |
+          cmake -S native/rasamic-native -B native/rasamic-native/build-linux-x64 -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build native/rasamic-native/build-linux-x64
+      - name: Managed tests (headless, incl. Avalonia GUI)
+        run: |
+          dotnet test tests/RasaMic.Protocol.Tests -c Release
+          dotnet test tests/RasaMic.Core.Tests -c Release
+          dotnet test tests/RasaMic.Audio.Tests -c Release
+          dotnet test tests/RasaMic.IntegrationTests -c Release
+          dotnet test tests/RasaMic.Server.App.Tests -c Release
+      - name: PipeWire virtual mic smoke
+        run: |
+          sudo apt-get update && sudo apt-get install -y pipewire pipewire-bin pipewire-pulse libpipewire-0.3-modules wireplumber pulseaudio-utils sox
+          export XDG_RUNTIME_DIR=/run/user/$(id -u)
+          mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
+          pipewire &
+          pipewire-pulse &
+          wireplumber &
+          sleep 4
+          dotnet build src/RasaMic.Server.Cli -c Release
+          dotnet build tools/RasaMic.LoopbackClient -c Release
+          dotnet run --project src/RasaMic.Server.Cli -c Release --no-build -- --pipewire --port 47399 --no-discovery &
+          SERVER_PID=$!
+          sleep 8
+          # Backend.Start runs on the first session, so nodes appear after the client connects.
+          # RNNoise suppresses a pure sine as non-speech; smoke tests the transport, not DSP.
+          dotnet run --project tools/RasaMic.LoopbackClient -c Release --no-build -- --server 127.0.0.1 --port 47399 --tone --seconds 12 --no-ns &
+          TONE_PID=$!
+          sleep 5
+          pw-cli ls Node | grep -q rasamic-mic
+          for i in $(seq 1 30); do [ "$(pw-cli ls Link | grep -c 'PipeWire:Interface:Link')" -ge 2 ] && break; sleep 1; done
+          timeout 4 pw-record --target rasamic-mic /tmp/rasa-capture.wav || true
+          wait $TONE_PID
+          kill $SERVER_PID || true
+          sox /tmp/rasa-capture.wav -n stat 2>&1 | tee /tmp/sox-stat.txt
+          awk '/RMS +amplitude/ { found=1; ok = ($3 > 0.001) ? 0 : 1 } END { exit found ? ok : 1 }' /tmp/sox-stat.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rasamic-native-linux-x64
+          path: native/rasamic-native/build-linux-x64/librasamic_native.so
+
+  macos-hal-spike:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '11.0.x'
+      - name: Build HAL plugin
+        run: |
+          cmake -S drivers/macos/RasaMicHalPlugin -B drivers/macos/RasaMicHalPlugin/build -DCMAKE_BUILD_TYPE=Release
+          cmake --build drivers/macos/RasaMicHalPlugin/build
+      - name: Install plugin + restart coreaudiod
+        run: |
+          sudo mkdir -p "/Library/Application Support/RasaMic"
+          sudo chmod 777 "/Library/Application Support/RasaMic"
+          sudo cp -R drivers/macos/RasaMicHalPlugin/build/RasaMicHalPlugin.driver /Library/Audio/Plug-Ins/HAL/
+          sudo killall coreaudiod || true
+          sleep 5
+      - name: Spike — coreaudiod enumerates Rasa Mic
+        run: |
+          system_profiler SPAudioDataType | tee /tmp/audio-devices.txt
+          grep -qi "Rasa" /tmp/audio-devices.txt
+      # Sandbox probe: coreaudiod may deny ring access outside its bundle.
+      # If this step fails while enumeration passed, the Mach fallback is next.
+      - name: Spike — ring readable from coreaudiod
+        continue-on-error: true
+        run: |
+          dotnet build src/RasaMic.Server.Cli -c Release
+          dotnet build tools/RasaMic.LoopbackClient -c Release
+          dotnet run --project src/RasaMic.Server.Cli -c Release --no-build -- --hal --port 47399 --no-discovery &
+          SERVER_PID=$!
+          sleep 8
+          dotnet run --project tools/RasaMic.LoopbackClient -c Release --no-build -- --server 127.0.0.1 --port 47399 --tone --seconds 15 --no-ns &
+          TONE_PID=$!
+          sleep 5
+          ffmpeg -hide_banner -loglevel error -f avfoundation -i ":Rasa Mic" -t 4 -ac 1 /tmp/rasa-hal.wav -y
+          wait $TONE_PID
+          kill $SERVER_PID || true
+          ffmpeg -hide_banner -i /tmp/rasa-hal.wav -af volumedetect -f null - 2>&1 | tee /tmp/vol.txt
+          awk '/mean_volume/ { found=1; ok = ($5 > -60) ? 0 : 1 } END { exit found ? ok : 1 }' /tmp/vol.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rasamic-hal-plugin-macos
+          path: drivers/macos/RasaMicHalPlugin/build/RasaMicHalPlugin.driver
