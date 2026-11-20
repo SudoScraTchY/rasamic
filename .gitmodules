@@ -1,0 +1,15 @@
+[submodule "native/third_party/opus"]
+	path = native/third_party/opus
+	url = https://github.com/xiph/opus.git
+[submodule "native/third_party/rnnoise"]
+	path = native/third_party/rnnoise
+	url = https://github.com/xiph/rnnoise.git
+[submodule "native/third_party/speexdsp"]
+	path = native/third_party/speexdsp
+	url = https://github.com/xiph/speexdsp.git
+[submodule "native/third_party/oboe"]
+	path = native/third_party/oboe
+	url = https://github.com/google/oboe.git
+[submodule "native/third_party/miniaudio"]
+	path = native/third_party/miniaudio
+	url = https://github.com/mackron/miniaudio.git

@@ -1,0 +1,13 @@
+/* Minimal speexdsp config.h for CMake builds (replaces autotools output). */
+#define FLOATING_POINT 1
+#define USE_KISS_FFT 1
+#define HAVE_STDINT_H 1
+#define HAVE_SYS_TYPES_H 1
+#define HAVE_MEMORY_H 1
+#define HAVE_STRING_H 1
+#define STDC_HEADERS 1
+#cmakedefine VAR_ARRAYS 1
+#cmakedefine USE_ALLOCA 1
+#ifndef EXPORT
+#define EXPORT
+#endif
