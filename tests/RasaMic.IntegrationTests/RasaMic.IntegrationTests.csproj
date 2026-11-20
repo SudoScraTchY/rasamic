@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\RasaMic.Server\RasaMic.Server.csproj" />
+    <ProjectReference Include="..\..\src\RasaMic.Client.Core\RasaMic.Client.Core.csproj" />
+    <ProjectReference Include="..\..\src\RasaMic.Audio\RasaMic.Audio.csproj" />
+  </ItemGroup>
+</Project>
