@@ -1,0 +1,49 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="RasaMic.Server.App.App"
+             RequestedThemeVariant="Default">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="/Styles/Colors.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+  <Application.Styles>
+    <FluentTheme>
+      <FluentTheme.Palettes>
+        <ColorPaletteResources x:Key="Light"
+                               Accent="#96660A" RegionColor="#F5F3EE"
+                               BaseHigh="#201D18" BaseMedium="#5C564B" BaseMediumHigh="#4A443B" BaseMediumLow="#8A8378" BaseLow="#6E675C"
+                               AltHigh="#FFFFFF" AltMedium="#ECE8E0" AltMediumHigh="#E4DFD5" AltMediumLow="#F0EDE6" AltLow="#DDD6CA"
+                               ListLow="#ECE8E0" ListMedium="#DDD6CA"
+                               ChromeLow="#FFFFFF" ChromeMedium="#ECE8E0" ChromeMediumLow="#F0EDE6" ChromeHigh="#DDD6CA" ChromeAltLow="#DDD6CA"
+                               ChromeDisabledHigh="#DDD6CA" ChromeDisabledLow="#8A8378" ChromeGray="#6E675C"
+                               ChromeBlackHigh="#201D18" ChromeBlackMedium="#5C564B" ChromeBlackMediumLow="#8A8378" ChromeBlackLow="#DDD6CA"
+                               ChromeWhite="#FFFFFF" ErrorText="#B3402F" />
+        <ColorPaletteResources x:Key="Dark"
+                               Accent="#E2A33C" RegionColor="#171512"
+                               BaseHigh="#EDEAE3" BaseMedium="#A69F92" BaseMediumHigh="#C4BEB2" BaseMediumLow="#7C7568" BaseLow="#948C7F"
+                               AltHigh="#201D19" AltMedium="#282420" AltMediumHigh="#2E2A24" AltMediumLow="#241F1B" AltLow="#322D26"
+                               ListLow="#282420" ListMedium="#322D26"
+                               ChromeLow="#201D19" ChromeMedium="#282420" ChromeMediumLow="#241F1B" ChromeHigh="#322D26" ChromeAltLow="#322D26"
+                               ChromeDisabledHigh="#322D26" ChromeDisabledLow="#7C7568" ChromeGray="#948C7F"
+                               ChromeBlackHigh="#EDEAE3" ChromeBlackMedium="#A69F92" ChromeBlackMediumLow="#7C7568" ChromeBlackLow="#322D26"
+                               ChromeWhite="#EDEAE3" ErrorText="#E08573" />
+      </FluentTheme.Palettes>
+    </FluentTheme>
+    <StyleInclude Source="/Styles/Styles.axaml" />
+  </Application.Styles>
+  <TrayIcon.Icons>
+    <TrayIcons>
+      <TrayIcon Icon="/Assets/rasa.png" ToolTipText="Rasa — server">
+        <TrayIcon.Menu>
+          <NativeMenu>
+            <NativeMenuItem Header="Show Rasa" Click="OnShowClicked" />
+            <NativeMenuItem Header="Quit" Click="OnQuitClicked" />
+          </NativeMenu>
+        </TrayIcon.Menu>
+      </TrayIcon>
+    </TrayIcons>
+  </TrayIcon.Icons>
+</Application>

@@ -1,0 +1,167 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:RasaMic.Server.App.ViewModels"
+        xmlns:conv="using:RasaMic.Server.App"
+        xmlns:helpers="using:RasaMic.Server.App.Helpers"
+        x:Class="RasaMic.Server.App.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="Rasa — server"
+        Width="560" Height="880" MinWidth="480" MinHeight="620"
+        Background="{DynamicResource Background}"
+        Icon="/Assets/rasa.png"
+        WindowStartupLocation="CenterScreen">
+  <ScrollViewer>
+    <StackPanel Margin="24" Spacing="16">
+
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="4">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="wordmark" Text="Rasa" />
+            <TextBlock Classes="persian" Text="رسا" />
+          </StackPanel>
+          <TextBlock Classes="tagline" Text="Your phone, a clear microphone" />
+        </StackPanel>
+        <TextBlock Grid.Column="1" Classes="mono" Text="0.1" VerticalAlignment="Top" />
+      </Grid>
+
+      <Border Classes="card">
+        <StackPanel Spacing="12">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="icon" Text="{x:Static helpers:IconFont.Server}" />
+            <TextBlock Classes="section" Text="Server" />
+          </StackPanel>
+          <Grid ColumnDefinitions="*,96" ColumnSpacing="8">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="hint" Text="Name on your network" />
+              <TextBox Text="{Binding ServerName}" Watermark="Server name"
+                       IsEnabled="{Binding !IsRunning}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="4">
+              <TextBlock Classes="hint" Text="Port" />
+              <TextBox Text="{Binding Port}" Watermark="Port"
+                       IsEnabled="{Binding !IsRunning}" />
+            </StackPanel>
+          </Grid>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="Start server" Command="{Binding StartCommand}"
+                    IsVisible="{Binding !IsRunning}" />
+            <Button Content="Stop" Command="{Binding StopCommand}"
+                    IsVisible="{Binding IsRunning}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Ellipse Width="8" Height="8" Fill="{Binding TallyBrush}" VerticalAlignment="Center" />
+            <TextBlock Classes="status" Text="{Binding Status}" VerticalAlignment="Center" />
+          </StackPanel>
+          <Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="8" MinHeight="44">
+            <TextBlock Classes="icon" Text="{x:Static helpers:IconFont.Desktop}" />
+            <TextBlock Grid.Column="1" Classes="status" Text="{Binding LocalIps}" VerticalAlignment="Center" />
+            <Button Grid.Column="2" Classes="secondary" Content="Copy"
+                    Command="{Binding CopyAddressCommand}" MinHeight="36" Padding="12,6" FontSize="13" />
+          </Grid>
+          <TextBlock Classes="hint"
+                     Text="Address of this PC on your LAN — what the phone app needs if you don't scan the QR code." />
+          <Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="8" MinHeight="44">
+            <TextBlock Classes="icon" Text="{x:Static helpers:IconFont.Gain}" />
+            <TextBlock Grid.Column="1" Text="Output" VerticalAlignment="Center" />
+            <ComboBox Grid.Column="2" ItemsSource="{Binding BackendChoices}" SelectedIndex="{Binding BackendChoice}"
+                    IsEnabled="{Binding !IsRunning}" MinWidth="190" />
+          </Grid>
+          <TextBlock Classes="hint"
+                     Text="Monitor plays through your speakers. Rasa Mic (driver) exposes a virtual microphone in Windows once the test-signed driver is installed." />
+          <TextBlock Classes="hint"
+                     Text="Start listens on your LAN and advertises this server by name (mDNS + UDP beacon). Keep the phone on the same Wi-Fi." />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card" IsVisible="{Binding IsRunning}">
+        <StackPanel Spacing="12">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="icon" Text="{x:Static helpers:IconFont.QrCode}" />
+            <TextBlock Classes="section" Text="Pair your phone" />
+          </StackPanel>
+          <Grid ColumnDefinitions="20,*" ColumnSpacing="12">
+            <Border Classes="chip"><TextBlock Classes="chip" Text="1" /></Border>
+            <TextBlock Grid.Column="1" Text="Open Rasa on your phone, on the same Wi-Fi as this PC." />
+          </Grid>
+          <Grid ColumnDefinitions="20,*" ColumnSpacing="12">
+            <Border Classes="chip"><TextBlock Classes="chip" Text="2" /></Border>
+            <TextBlock Grid.Column="1" Text="Scan the code in the app. It pins this server's key, so the audio link is encrypted." />
+          </Grid>
+          <Grid ColumnDefinitions="20,*" ColumnSpacing="12">
+            <Border Classes="chip"><TextBlock Classes="chip" Text="3" /></Border>
+            <TextBlock Grid.Column="1" Text="Talk — the tally dot turns amber while audio is live." />
+          </Grid>
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+            <Border Classes="qr">
+              <Image Width="180" Height="180"
+                     Source="{Binding QrPng, Converter={x:Static conv:BytesToImageConverter.Instance}}" />
+            </Border>
+            <StackPanel Grid.Column="1" Spacing="8">
+              <TextBlock Classes="hint" Text="Or paste the payload in the app:" />
+              <TextBox Classes="mono" Text="{Binding PairingText, Mode=OneWay}" IsReadOnly="True"
+                       TextWrapping="Wrap" MaxHeight="96" ScrollViewer.VerticalScrollBarVisibility="Auto" />
+              <Button Classes="secondary" Content="Copy payload"
+                      Command="{Binding CopyPairingCommand}" />
+            </StackPanel>
+          </Grid>
+          <TextBlock Classes="hint" Text="No camera? Enter this PC's IP address in the app instead." />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="12">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="icon" Text="{x:Static helpers:IconFont.Mic}" />
+            <TextBlock Classes="section" Text="Microphone" />
+          </StackPanel>
+          <Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="8" MinHeight="44">
+            <TextBlock Classes="icon" Text="{x:Static helpers:IconFont.MicOff}" />
+            <TextBlock Grid.Column="1" Text="Mute" VerticalAlignment="Center" />
+            <ToggleSwitch Grid.Column="2" IsChecked="{Binding IsMuted}" OffContent="" OnContent="" />
+          </Grid>
+          <Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="8" MinHeight="44">
+            <TextBlock Classes="icon" Text="{x:Static helpers:IconFont.Keyboard}" />
+            <TextBlock Grid.Column="1" Classes="status" VerticalAlignment="Center"
+                       Text="{Binding HotkeyText, StringFormat='Mute hotkey: {0}'}" />
+            <Button Grid.Column="2" Classes="secondary" Content="Change"
+                    Command="{Binding ChangeHotkeyCommand}" IsEnabled="{Binding IsRunning}"
+                    MinHeight="36" Padding="12,6" FontSize="13" />
+          </Grid>
+          <StackPanel Spacing="4">
+            <TextBlock Text="{Binding GainDb, StringFormat='Output gain: {0:F0} dB'}" />
+            <Slider Minimum="-24" Maximum="24" Value="{Binding GainDb}" />
+          </StackPanel>
+          <TextBlock Classes="hint"
+                     Text="Mute and gain apply to the PC output, on top of the phone's own controls." />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card" IsVisible="{Binding IsRunning}">
+        <StackPanel Spacing="8">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="icon" Text="{x:Static helpers:IconFont.Pulse}" />
+            <TextBlock Classes="section" Text="Session" />
+          </StackPanel>
+          <TextBlock Classes="status" Text="Client connected" Foreground="{DynamicResource Success}"
+                     IsVisible="{Binding HasSession}" />
+          <TextBlock Classes="status" Text="Waiting for a phone to connect…"
+                     IsVisible="{Binding !HasSession}" />
+          <TextBlock Classes="mono" Text="{Binding StatsText}" IsVisible="{Binding HasSession}" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="8">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="icon" Text="{x:Static helpers:IconFont.Info}" />
+            <TextBlock Classes="section" Text="Log" />
+          </StackPanel>
+          <ListBox ItemsSource="{Binding Log}" Height="140" />
+        </StackPanel>
+      </Border>
+
+      <TextBlock Classes="hint" HorizontalAlignment="Center"
+                 Text="Closing this window keeps Rasa in the tray. Quit from the tray menu." />
+    </StackPanel>
+  </ScrollViewer>
+</Window>
