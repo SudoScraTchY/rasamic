@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>RasaMic.Core</RootNamespace>
+    <Description>Session state machine, jitter buffer, transports, discovery, smart reconnect.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Haukcode.Mdns" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\RasaMic.Protocol\RasaMic.Protocol.csproj" />
+    <ProjectReference Include="..\RasaMic.Audio\RasaMic.Audio.csproj" />
+  </ItemGroup>
+</Project>
