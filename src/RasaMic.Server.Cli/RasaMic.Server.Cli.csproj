@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>RasaMic.Server.Cli</RootNamespace>
+    <AssemblyName>rasamicd</AssemblyName>
+    <Description>Headless RasaMic server daemon.</Description>
+    <RuntimeIdentifiers>win-x64;win-arm64;osx-x64;osx-arm64;linux-x64;linux-arm64</RuntimeIdentifiers>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\RasaMic.Server\RasaMic.Server.csproj" />
+    <ProjectReference Include="..\RasaMic.Core\RasaMic.Core.csproj" />
+  </ItemGroup>
+</Project>

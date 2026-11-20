@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>RasaMic.Server</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Description>Server engine: listeners, client sessions, virtual-microphone backends.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\RasaMic.Core\RasaMic.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="InTheHand.Net.Bluetooth" />
+  </ItemGroup>
+</Project>
