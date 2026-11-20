@@ -13,3 +13,6 @@
 [submodule "native/third_party/miniaudio"]
 	path = native/third_party/miniaudio
 	url = https://github.com/mackron/miniaudio.git
+[submodule "drivers/windows"]
+	path = drivers/windows
+	url = https://github.com/SudoScraTchY/rasamic-windows-driver.git
