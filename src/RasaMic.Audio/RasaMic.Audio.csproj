@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>RasaMic.Audio</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Description>P/Invoke layer for rasamic_native (Opus, RNNoise, SpeexDSP) and lock-free rings.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Numerics.Tensors" />
+  </ItemGroup>
+  <ItemGroup Condition="Exists('..\..\native\rasamic-native\build-win-x64\rasamic_native.dll')">
+    <None Include="..\..\native\rasamic-native\build-win-x64\rasamic_native.dll" Link="rasamic_native.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+  <ItemGroup Condition="Exists('..\..\native\rasamic-native\build-linux-x64\librasamic_native.so')">
+    <None Include="..\..\native\rasamic-native\build-linux-x64\librasamic_native.so" Link="librasamic_native.so" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+</Project>
