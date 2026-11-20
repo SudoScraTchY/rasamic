@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RasaMic.Audio/RasaMic.Audio.csproj" />
+    <Project Path="src/RasaMic.Core/RasaMic.Core.csproj" />
+    <Project Path="src/RasaMic.Protocol/RasaMic.Protocol.csproj" />
+    <Project Path="src/RasaMic.Server/RasaMic.Server.csproj" />
+  </Folder>
+  <Project Path="src/RasaMic.Client.Core/RasaMic.Client.Core.csproj" />
+  <Project Path="src/RasaMic.Server.App/RasaMic.Server.App.csproj" />
+  <Project Path="src/RasaMic.Server.Cli/RasaMic.Server.Cli.csproj" />
+  <Project Path="tests/RasaMic.Audio.Tests/RasaMic.Audio.Tests.csproj" />
+  <Project Path="tests/RasaMic.Core.Tests/RasaMic.Core.Tests.csproj" />
+  <Project Path="tests/RasaMic.IntegrationTests/RasaMic.IntegrationTests.csproj" />
+  <Project Path="tests/RasaMic.Protocol.Tests/RasaMic.Protocol.Tests.csproj" />
+  <Project Path="tests/RasaMic.Server.App.Tests/RasaMic.Server.App.Tests.csproj" />
+  <Project Path="tools/RasaMic.LoopbackClient/RasaMic.LoopbackClient.csproj" />
+  <Project Path="tools/RasaMic.LatencyProbe/RasaMic.LatencyProbe.csproj" />
+  <Project Path="tools/RasaMic.Benchmarks/RasaMic.Benchmarks.csproj" />
+</Solution>

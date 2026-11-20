@@ -1,0 +1,56 @@
+# Build outputs
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+
+# Native builds
+native/**/build/
+native/**/build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.lib
+*.a
+*.exp
+*.pdb
+!native/prebuilt/**
+
+# Rider / VS
+*.DotSettings.user
+launchSettings.json.bak
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Test / coverage
+TestResults/
+coverage*.json
+coverage*.xml
+*.trx
+BenchmarkDotNet.Artifacts/
+perf-baseline-run/
+
+# Local secrets / pairing material
+*.pfx
+*.snk
+secrets.json
+
+# Local tooling / recon (never committed)
+.tools/
+vibe_images/
+# release packaging
+dist/
