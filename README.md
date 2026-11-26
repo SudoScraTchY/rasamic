@@ -1,4 +1,4 @@
-# Rasa (رسا)
+# Rasa
 
 **Your phone, your microphone — everywhere.** Rasa turns an iPhone or Android
 phone into a low-latency wireless microphone for Windows, macOS, and Linux

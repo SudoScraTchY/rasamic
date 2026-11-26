@@ -77,7 +77,7 @@ public class PairingPayloadTests
     public void Encoded_IsUrlSafe()
     {
         using var identity = ServerIdentity.Create();
-        var payload = PairingPayload.FromIdentity(identity, "سرور رسا", ["192.168.1.10"], 47300);
+        var payload = PairingPayload.FromIdentity(identity, "Rasa Server", ["192.168.1.10"], 47300);
         string encoded = PairingPayload.Encode(payload);
         Assert.DoesNotContain('+', encoded);
         Assert.DoesNotContain('/', encoded);

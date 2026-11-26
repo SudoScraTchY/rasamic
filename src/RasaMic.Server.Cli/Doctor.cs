@@ -7,7 +7,7 @@ public static class Doctor
 {
     public static void Run()
     {
-        Console.WriteLine("Rasa (رسا) server doctor");
+        Console.WriteLine("Rasa server doctor");
         if (OperatingSystem.IsLinux())
         {
             bool pw = ToolExists("pw-loopback");

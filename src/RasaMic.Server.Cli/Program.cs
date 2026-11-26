@@ -102,7 +102,7 @@ using ServerIdentity identity = ServerIdentityStore.LoadOrCreate(keyPath);
         cts.Cancel();
     };
 
-    Console.WriteLine($"Rasa (رسا) server — id {identity.ServerId}");
+    Console.WriteLine($"Rasa server — id {identity.ServerId}");
     Console.WriteLine($"Backend: {backend.Name}");
     Console.WriteLine("Pairing payload (encode as QR in the GUI; paste into client for manual pairing):");
     Console.WriteLine(server.PairingText);

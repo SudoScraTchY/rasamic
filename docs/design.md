@@ -43,8 +43,7 @@ the tally, slider, switches and pairing code instead.
 
 IBM Plex Sans 400/500/600 for the interface, IBM Plex Mono for figures (stats, pairing
 code, version). Hierarchy by size and color: 28 wordmark, 16 section, 14 body, 13 status,
-12 hint, 24 mono pairing code. The Persian wordmark `رسا` is an isolated span rendered
-by the system Arabic fallback.
+12 hint, 24 mono pairing code. The wordmark uses the English product name "Rasa".
 
 ## Spacing, radii, icons
 

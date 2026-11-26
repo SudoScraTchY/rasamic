@@ -1,4 +1,4 @@
-// Rasa (رسا) macOS virtual microphone — AudioServerPlugIn for coreaudiod.
+// Rasa macOS virtual microphone — AudioServerPlugIn for coreaudiod.
 // MIT. Exposes one input device "Rasa Mic" (48 kHz mono float32) whose samples
 // come from the file-backed SPSC ring written by rasamicd --hal
 // (src/RasaMic.Server/Backends/MacHalBackend.cs, layout in rasa_ring.h).

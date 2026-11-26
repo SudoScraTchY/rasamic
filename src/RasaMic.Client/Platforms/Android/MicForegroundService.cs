@@ -36,7 +36,7 @@ public class MicForegroundService : Service
     public override StartCommandResult OnStartCommand(Intent? intent, [GeneratedEnum] StartCommandFlags flags, int startId)
     {
         var notification = new Notification.Builder(this, ChannelId)
-            .SetContentTitle("Rasa (رسا)")
+            .SetContentTitle("Rasa")
             .SetContentText("Microphone streaming active")
             .SetSmallIcon(Resource.Mipmap.appicon)
             .SetOngoing(true)

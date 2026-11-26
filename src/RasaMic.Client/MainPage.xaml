@@ -3,18 +3,14 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:helpers="clr-namespace:RasaMic.Client.Helpers"
              x:Class="RasaMic.Client.MainPage"
-             Title="Rasa — رسا">
+             Title="Rasa">
 
     <ScrollView>
         <VerticalStackLayout Padding="16" Spacing="16" MaximumWidthRequest="520" HorizontalOptions="Center">
 
             <Grid ColumnDefinitions="*,Auto">
                 <VerticalStackLayout Spacing="4">
-                    <HorizontalStackLayout Spacing="8">
-                        <Label Text="Rasa" Style="{StaticResource Wordmark}" />
-                        <Label Text="رسا" FontSize="16" VerticalOptions="Center"
-                               TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextMutedDark}}" />
-                    </HorizontalStackLayout>
+                    <Label Text="Rasa" Style="{StaticResource Wordmark}" />
                     <Label Text="Your phone, a clear microphone" Style="{StaticResource Tagline}" />
                 </VerticalStackLayout>
                 <Label Grid.Column="1" Text="0.1" Style="{StaticResource Mono}" VerticalOptions="Start" />

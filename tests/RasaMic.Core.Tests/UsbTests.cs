@@ -21,7 +21,7 @@ public class BplistTests
             ["Off"] = false,
             ["Nested"] = new Dictionary<string, object?> { ["SerialNumber"] = "ABC123" },
             ["List"] = new List<object?> { 1L, "two", false },
-            ["Persian"] = "رسا",
+            ["Unicode"] = "Rasa \u2713",
             ["LongString"] = new string('x', 40), // extended length path
         };
         var back = (Dictionary<string, object?>)Bplist.Read(Bplist.Write(root))!;
@@ -34,7 +34,7 @@ public class BplistTests
         Assert.Equal("ABC123", ((Dictionary<string, object?>)back["Nested"]!)["SerialNumber"]);
         var list = (List<object?>)back["List"]!;
         Assert.Equal(new object?[] { 1L, "two", false }, list);
-        Assert.Equal("رسا", back["Persian"]);
+        Assert.Equal("Rasa \u2713", back["Unicode"]);
         Assert.Equal(new string('x', 40), back["LongString"]);
     }
 

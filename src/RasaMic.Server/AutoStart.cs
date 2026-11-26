@@ -43,7 +43,7 @@ public static class AutoStart
 
     public static string SystemdUnit(string exePath, string args) => $"""
         [Unit]
-        Description=Rasa (رسا) microphone server
+        Description=Rasa microphone server
         After=network-online.target sound.target
 
         [Service]
