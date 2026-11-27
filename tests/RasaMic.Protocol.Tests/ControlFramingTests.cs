@@ -10,9 +10,11 @@ public class ControlFramingTests
     {
         ControlMessage[] messages =
         [
-            new Hello(1, "client-1", "Pixel 9", new byte[] { 1, 2, 3 }, 0),
+            new Hello(ProtocolConstants.Version, "client-1", "Pixel 9", new byte[] { 1, 2, 3 }, 0),
             new HelloAck("srv", "Rasa Server", new byte[] { 4 }, new byte[] { 5 }, 42, 1),
+            new HelloAck("srv-plain", "Rasa Server", new byte[] { 4 }, new byte[] { 5 }, 43, 1, false),
             new PairConfirm("123456"),
+            new SessionReady(42, new byte[] { 8, 7, 6 }),
             new Resume(42, new byte[] { 9 }),
             new SetMute(true),
             new SetGain(-6.5f),
@@ -45,17 +47,28 @@ public class ControlFramingTests
     }
 
     [Fact]
+    public void LegacyHelloAck_DefaultsToEncryptedAudio()
+    {
+        const string json = """
+            {"$t":"helloAck","ServerId":"srv","ServerName":"Rasa Server","EphPub":"BA==","StaticPub":"BQ==","SessionId":42,"ProtoVer":1}
+            """;
+        var ack = Assert.IsType<HelloAck>(System.Text.Json.JsonSerializer.Deserialize(
+            json, ProtocolJsonContext.Default.ControlMessage));
+        Assert.True(ack.AudioEncrypted);
+    }
+
+    [Fact]
     public async Task ReadAsync_RejectsOversizedLength()
     {
         using var stream = new MemoryStream(new byte[] { 0xFF, 0xFF });
-        await Assert.ThrowsAsync<InvalidDataException>(() => ControlFraming.ReadAsync(stream));
+        await Assert.ThrowsAsync<InvalidDataException>(async () => await ControlFraming.ReadAsync(stream));
     }
 
     [Fact]
     public async Task ReadAsync_ThrowsOnTruncatedPayload()
     {
         using var stream = new MemoryStream(new byte[] { 0x00, 0x10, 1, 2, 3 });
-        await Assert.ThrowsAsync<EndOfStreamException>(() => ControlFraming.ReadAsync(stream));
+        await Assert.ThrowsAsync<EndOfStreamException>(async () => await ControlFraming.ReadAsync(stream));
     }
 }
 

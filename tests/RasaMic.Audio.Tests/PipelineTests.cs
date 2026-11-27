@@ -186,6 +186,64 @@ public class PipelineTests
     }
 
     [Fact]
+    public void FrameSize_UsesConfiguredDuration()
+    {
+        using var tenMs = new AudioPipeline(new PipelineOptions { FrameMs = 10 });
+        using var twentyMs = new AudioPipeline(new PipelineOptions { FrameMs = 20 });
+        Assert.Equal(10, tenMs.FrameMs);
+        Assert.Equal(480, tenMs.FrameSamples);
+        Assert.Equal(20, twentyMs.FrameMs);
+        Assert.Equal(960, twentyMs.FrameSamples);
+    }
+
+    [Fact]
+    public void Flush_DiscardsQueuedPacketsAndKeepsSequenceMoving()
+    {
+        using var pipeline = new AudioPipeline(new PipelineOptions { NoiseSuppression = false, Agc = false });
+        byte[] packet = new byte[512];
+        pipeline.Feed(Sine(480 * 5, 440, 8000));
+        Assert.True(pipeline.ReadPacket(packet, out uint firstSeq, out _) > 0);
+
+        pipeline.Flush();
+        Assert.Equal(0, pipeline.ReadPacket(packet, out _, out _));
+
+        pipeline.Feed(Sine(480, 440, 8000));
+        Assert.True(pipeline.ReadPacket(packet, out uint nextSeq, out _) > 0);
+        Assert.Equal(firstSeq + 5, nextSeq);
+    }
+
+    [Fact]
+    public void StereoDecode_UsesSamplesPerChannel()
+    {
+        using var pipeline = new AudioPipeline(new PipelineOptions
+        {
+            Channels = 2,
+            FrameMs = 20,
+            NoiseSuppression = false,
+            Agc = false,
+        });
+        pipeline.Feed(Sine(960 * 2, 440, 8000));
+        byte[] packet = new byte[512];
+        Assert.True(pipeline.ReadPacket(packet, out _, out _) > 0);
+
+        using var decoder = new OpusDecoder(48000, 2);
+        float[] pcm = new float[960 * 2];
+        int samples = decoder.Decode(packet, pcm);
+        Assert.Equal(960, samples);
+        Assert.All(pcm, value => Assert.True(float.IsFinite(value)));
+    }
+
+    [Fact]
+    public void StereoPlc_UsesSamplesPerChannel()
+    {
+        using var decoder = new OpusDecoder(48000, 2);
+        float[] pcm = new float[480 * 2];
+        int samples = decoder.Plc(pcm);
+        Assert.Equal(480, samples);
+        Assert.All(pcm, value => Assert.True(float.IsFinite(value)));
+    }
+
+    [Fact]
     public void Plc_ProducesFiniteAudio()
     {
         using var decoder = new OpusDecoder();

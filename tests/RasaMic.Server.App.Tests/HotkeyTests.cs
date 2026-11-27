@@ -44,13 +44,39 @@ public class HotkeyTests
         string path = Path.Combine(Path.GetTempPath(), $"rasamic-settings-{Guid.NewGuid():N}.json");
         try
         {
-            Assert.Equal("Ctrl+Alt+M", SettingsStore.Load(path).MuteHotkey);
+            var defaults = SettingsStore.Load(path);
+            Assert.Equal("Ctrl+Alt+M", defaults.MuteHotkey);
+            Assert.True(defaults.AudioEncrypted);
+            Assert.True(defaults.HearOnPc);
 
             SettingsStore.Save(new AppSettings("Ctrl+Shift+F9"), path);
+            string defaultJson = File.ReadAllText(path);
+            Assert.Contains("\"AudioEncrypted\":true", defaultJson);
+            Assert.Contains("\"HearOnPc\":true", defaultJson);
             Assert.Equal("Ctrl+Shift+F9", SettingsStore.Load(path).MuteHotkey);
 
+            SettingsStore.Save(new AppSettings(
+                "Ctrl+Shift+F9", 2, "{endpoint-id}", "CABLE Input", AudioEncrypted: false, HearOnPc: false), path);
+            var saved = SettingsStore.Load(path);
+            Assert.Equal(2, saved.BackendChoice);
+            Assert.Equal("{endpoint-id}", saved.OutputDeviceId);
+            Assert.Equal("CABLE Input", saved.OutputDeviceName);
+            Assert.False(saved.AudioEncrypted);
+            Assert.False(saved.HearOnPc);
+
+            File.WriteAllText(path, "{\"MuteHotkey\":\"Ctrl+Alt+M\"}");
+            var legacy = SettingsStore.Load(path);
+            Assert.Equal("Ctrl+Alt+M", legacy.MuteHotkey);
+            Assert.Equal(0, legacy.BackendChoice);
+            Assert.Null(legacy.OutputDeviceId);
+            Assert.True(legacy.AudioEncrypted);
+            Assert.True(legacy.HearOnPc);
+
             File.WriteAllText(path, "{corrupt");
-            Assert.Equal("Ctrl+Alt+M", SettingsStore.Load(path).MuteHotkey);
+            var corrupt = SettingsStore.Load(path);
+            Assert.Equal("Ctrl+Alt+M", corrupt.MuteHotkey);
+            Assert.True(corrupt.AudioEncrypted);
+            Assert.True(corrupt.HearOnPc);
         }
         finally
         {

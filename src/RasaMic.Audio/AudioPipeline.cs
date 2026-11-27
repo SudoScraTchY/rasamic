@@ -24,6 +24,7 @@ public sealed class AudioPipeline : IDisposable
 
     public AudioPipeline(PipelineOptions options)
     {
+        FrameMs = options.FrameMs;
         var cfg = new RmConfig
         {
             SampleRate = options.SampleRate,
@@ -42,7 +43,8 @@ public sealed class AudioPipeline : IDisposable
             throw new InvalidOperationException("Failed to create native audio pipeline (check sample rate / frame size).");
     }
 
-    public int FrameSamples => 480; // v1: 10 ms default; caller uses options.FrameMs * 48
+    public int FrameMs { get; }
+    public int FrameSamples => FrameMs * 48;
 
     public unsafe int Feed(ReadOnlySpan<short> pcm)
     {
@@ -70,6 +72,8 @@ public sealed class AudioPipeline : IDisposable
     public void SetBitrate(int bps) => NativeMethods.rm_pipeline_set_bitrate(_handle, bps);
     public void SetDtx(bool enabled) => NativeMethods.rm_pipeline_set_dtx(_handle, enabled ? 1 : 0);
 
+    public void Flush() => NativeMethods.rm_pipeline_flush(_handle);
+
     public (ulong Frames, ulong Packets, ulong Dropped) GetStats()
     {
         NativeMethods.rm_pipeline_get_stats(_handle, out RmStats stats);
@@ -89,10 +93,14 @@ public sealed class AudioPipeline : IDisposable
 /// <summary>Server-side Opus decoder (float output).</summary>
 public sealed class OpusDecoder : IDisposable
 {
+    private readonly int _channels;
     private IntPtr _handle;
 
     public OpusDecoder(int sampleRate = 48000, int channels = 1)
     {
+        if (channels is not (1 or 2))
+            throw new ArgumentOutOfRangeException(nameof(channels));
+        _channels = channels;
         _handle = NativeMethods.rm_decoder_create(sampleRate, channels);
         if (_handle == IntPtr.Zero)
             throw new InvalidOperationException("Failed to create native Opus decoder.");
@@ -102,16 +110,20 @@ public sealed class OpusDecoder : IDisposable
     /// With <paramref name="fec"/>=true recovers the previous lost frame (LBRR).</summary>
     public unsafe int Decode(ReadOnlySpan<byte> payload, Span<float> pcm, bool fec = false)
     {
+        if (pcm.Length % _channels != 0)
+            throw new ArgumentException("PCM buffer must contain complete interleaved channel frames.", nameof(pcm));
         fixed (byte* d = payload)
         fixed (float* p = pcm)
-            return NativeMethods.rm_decoder_decode(_handle, d, payload.Length, p, pcm.Length, fec ? 1 : 0);
+            return NativeMethods.rm_decoder_decode(_handle, d, payload.Length, p, pcm.Length / _channels, fec ? 1 : 0);
     }
 
     /// <summary>Packet-loss concealment for a missing packet.</summary>
     public unsafe int Plc(Span<float> pcm)
     {
+        if (pcm.Length % _channels != 0)
+            throw new ArgumentException("PCM buffer must contain complete interleaved channel frames.", nameof(pcm));
         fixed (float* p = pcm)
-            return NativeMethods.rm_decoder_plc(_handle, p, pcm.Length);
+            return NativeMethods.rm_decoder_plc(_handle, p, pcm.Length / _channels);
     }
 
     public void Dispose()

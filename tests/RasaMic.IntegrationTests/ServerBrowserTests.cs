@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Sockets;
 using RasaMic.Client.Core;
 using RasaMic.Core.Discovery;
+using RasaMic.Protocol;
 using Xunit;
 
 namespace RasaMic.IntegrationTests;
@@ -18,7 +19,7 @@ public class ServerBrowserTests
         browser.Start();
 
         using var broadcaster = new BeaconBroadcaster(
-            new ServerBeacon(1, "browse-id", "browse-name", 47300),
+            new ServerBeacon(ProtocolConstants.Version, "browse-id", "browse-name", 47300),
             port, new IPEndPoint(IPAddress.Loopback, port), TimeSpan.FromMilliseconds(50));
         using var cts = new CancellationTokenSource(3000);
         _ = Swallow(broadcaster.RunAsync(cts.Token));
@@ -46,7 +47,7 @@ public class ServerBrowserTests
         browser.Found += s => { lock (events) events.Add(s); };
         browser.Start();
 
-        using (var b1 = new BeaconBroadcaster(new ServerBeacon(1, "move-id", "m", 47300),
+        using (var b1 = new BeaconBroadcaster(new ServerBeacon(ProtocolConstants.Version, "move-id", "m", 47300),
                    port, new IPEndPoint(IPAddress.Loopback, port), TimeSpan.FromMilliseconds(50)))
         using (var c1 = new CancellationTokenSource(1500))
         {
@@ -54,7 +55,7 @@ public class ServerBrowserTests
             await WaitUntil(() => { lock (events) return events.Count == 1; }, 2000);
         }
 
-        using var b2 = new BeaconBroadcaster(new ServerBeacon(1, "move-id", "m", 47301),
+        using var b2 = new BeaconBroadcaster(new ServerBeacon(ProtocolConstants.Version, "move-id", "m", 47301),
             port, new IPEndPoint(IPAddress.Loopback, port), TimeSpan.FromMilliseconds(50));
         using var c2 = new CancellationTokenSource(2000);
         _ = Swallow(b2.RunAsync(c2.Token));

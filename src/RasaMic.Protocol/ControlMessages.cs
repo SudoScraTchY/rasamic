@@ -7,6 +7,7 @@ namespace RasaMic.Protocol;
 [JsonDerivedType(typeof(Hello), "hello")]
 [JsonDerivedType(typeof(HelloAck), "helloAck")]
 [JsonDerivedType(typeof(PairConfirm), "pairConfirm")]
+[JsonDerivedType(typeof(SessionReady), "sessionReady")]
 [JsonDerivedType(typeof(Resume), "resume")]
 [JsonDerivedType(typeof(SetMute), "setMute")]
 [JsonDerivedType(typeof(SetGain), "setGain")]
@@ -36,9 +37,12 @@ public sealed record HelloAck(
     byte[] EphPub,
     byte[] StaticPub,
     uint SessionId,
-    int ProtoVer) : ControlMessage;
+    int ProtoVer,
+    bool AudioEncrypted = true) : ControlMessage;
 
 public sealed record PairConfirm(string Code) : ControlMessage;
+
+public sealed record SessionReady(uint SessionId, byte[] Proof) : ControlMessage;
 
 public sealed record Resume(uint SessionId, byte[] Proof) : ControlMessage;
 
@@ -65,7 +69,10 @@ public sealed record Stats(
     long Bytes,
     float DecodeP95Ms = 0,
     float DwellP95Ms = 0,
-    float WriteP95Ms = 0) : ControlMessage;
+    float WriteP95Ms = 0,
+    float OutputBufferMs = 0,
+    ulong OutputDrops = 0,
+    float OutputDeviceBufferMs = 0) : ControlMessage;
 
 public sealed record Ping(long TsUs) : ControlMessage;
 
@@ -81,6 +88,7 @@ public sealed record Error(string Message, string? UpgradeHint = null) : Control
 [JsonSerializable(typeof(Hello))]
 [JsonSerializable(typeof(HelloAck))]
 [JsonSerializable(typeof(PairConfirm))]
+[JsonSerializable(typeof(SessionReady))]
 [JsonSerializable(typeof(Resume))]
 [JsonSerializable(typeof(SetMute))]
 [JsonSerializable(typeof(SetGain))]

@@ -96,6 +96,15 @@ public static class SessionCrypto
         return hash[..16];
     }
 
+    public static byte[] SessionProof(SessionKeys keys, uint sessionId, bool audioEncrypted)
+    {
+        Span<byte> transcript = stackalloc byte[5];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(transcript, sessionId);
+        transcript[4] = audioEncrypted ? (byte)1 : (byte)0;
+        byte[] hash = HMACSHA256.HashData(keys.ControlKey, transcript);
+        return hash[..16];
+    }
+
     internal static byte[] Dh(ECDiffieHellman priv, byte[] peerPublicKeySpki)
     {
         using var peer = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);

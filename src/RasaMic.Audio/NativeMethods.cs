@@ -25,6 +25,19 @@ internal struct RmStats
     public ulong PacketsDropped;
 }
 
+[StructLayout(LayoutKind.Sequential)]
+internal struct RmMonitorStats
+{
+    public uint CapacitySamples;
+    public uint QueuedSamples;
+    public ulong DroppedSamples;
+    public ulong UnderrunSamples;
+    public uint DeviceBufferFrames;
+    public uint DevicePeriodFrames;
+    public uint DeviceSampleRate;
+    public uint DeviceChannels;
+}
+
 internal static partial class NativeMethods
 {
     private const string Lib = "rasamic_native";
@@ -63,6 +76,9 @@ internal static partial class NativeMethods
     internal static extern void rm_pipeline_get_stats(IntPtr h, out RmStats stats);
 
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern void rm_pipeline_flush(IntPtr h);
+
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
     internal static extern IntPtr rm_decoder_create(int sampleRate, int channels);
 
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
@@ -77,14 +93,27 @@ internal static partial class NativeMethods
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
     internal static extern IntPtr rm_monitor_create(int sampleRate, int channels);
 
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-    internal static extern IntPtr rm_monitor_create_named(int sampleRate, int channels, string nameFilter);
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern IntPtr rm_monitor_create_named(
+        int sampleRate, int channels, [MarshalAs(UnmanagedType.LPUTF8Str)] string nameFilter);
+
+    [LibraryImport(Lib, StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial IntPtr rm_monitor_create_id(int sampleRate, int channels, string deviceId);
+
+    [LibraryImport(Lib)]
+    internal static unsafe partial int rm_devices_enumerate(
+        int deviceType,
+        delegate* unmanaged<IntPtr, IntPtr, IntPtr, int, void> callback,
+        IntPtr user);
 
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
     internal static extern unsafe int rm_monitor_write(IntPtr h, float* pcm, int samples);
 
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void rm_monitor_destroy(IntPtr h);
+
+    [LibraryImport(Lib)]
+    internal static partial void rm_monitor_get_stats(IntPtr h, out RmMonitorStats stats);
 
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
     internal static extern IntPtr rm_capture_create(int sampleRate, int channels, IntPtr cb, IntPtr user);

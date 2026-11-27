@@ -17,7 +17,7 @@ public static class ControlFraming
         await stream.FlushAsync(ct).ConfigureAwait(false);
     }
 
-    public static async Task<ControlMessage?> ReadAsync(Stream stream, CancellationToken ct = default)
+    public static async ValueTask<ControlMessage?> ReadAsync(Stream stream, CancellationToken ct = default)
     {
         byte[]? payload = await ReadRawAsync(stream, ct).ConfigureAwait(false);
         if (payload is null)
@@ -27,7 +27,7 @@ public static class ControlFraming
     }
 
     /// <summary>Reads one length-prefixed frame without interpreting it (control JSON or raw audio).</summary>
-    public static async Task<byte[]?> ReadRawAsync(Stream stream, CancellationToken ct = default)
+    public static async ValueTask<byte[]?> ReadRawAsync(Stream stream, CancellationToken ct = default)
     {
         byte[] lengthPrefix = new byte[2];
         if (!await ReadExactAsync(stream, lengthPrefix, ct).ConfigureAwait(false))

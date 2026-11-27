@@ -13,15 +13,18 @@ public class LoopbackTests
     private sealed class CollectBackend : IVirtualMicBackend
     {
         private readonly List<float> _samples = new();
+        private readonly List<long> _writeTimestamps = new();
         private float _peak;
         public string Name => "collect";
         public int Count { get { lock (_samples) return _samples.Count; } }
         public float Peak { get { lock (_samples) return _peak; } }
+        public double WriteSpanMs { get { lock (_samples) return _writeTimestamps.Count < 2 ? 0 : (_writeTimestamps[^1] - _writeTimestamps[0]) * 1000.0 / System.Diagnostics.Stopwatch.Frequency; } }
         public void Start(int sampleRate, int channels) { }
         public void Write(ReadOnlySpan<float> pcm)
         {
             lock (_samples)
             {
+                _writeTimestamps.Add(System.Diagnostics.Stopwatch.GetTimestamp());
                 foreach (float s in pcm)
                 {
                     _samples.Add(s);
@@ -54,17 +57,18 @@ public class LoopbackTests
             frame[s] = (short)(8000 * Math.Sin(2 * Math.PI * 440 * (frameIndex * frame.Length + s) / 48000.0));
     }
 
-    private static async Task<(int Sent, CollectBackend Backend)> RunSession(int dropEvery, CancellationToken ct, ControlMessage? preFeed = null, PipelineOptions? options = null, bool tcpAudio = false, int gapAfterFrame = 0, int gapMs = 0)
+    private static async Task<(int Sent, CollectBackend Backend)> RunSession(int dropEvery, CancellationToken ct, ControlMessage? preFeed = null, PipelineOptions? options = null, bool tcpAudio = false, int gapAfterFrame = 0, int gapMs = 0, bool audioEncrypted = true, int frameCount = 200, int sendDelayMs = 5, int waitAfterMs = 1200)
     {
         int port = FreePort();
         using var identity = ServerIdentity.Create();
         var backend = new CollectBackend();
-        using var server = new RasaMicServer(identity, backend, port);
+        using var server = new RasaMicServer(identity, backend, port, audioEncrypted: audioEncrypted);
         var serverTask = server.RunAsync(ct);
         await WaitListening(server, ct);
 
         using var client = new ClientSession();
         await client.ConnectAsync(new IPEndPoint(IPAddress.Loopback, port), null, "loopback-test", ct, tcpAudio);
+        Assert.Equal(audioEncrypted, client.AudioEncrypted);
         if (preFeed is not null)
         {
             await client.SendControlAsync(preFeed, ct);
@@ -76,7 +80,7 @@ public class LoopbackTests
         byte[] packet = new byte[512];
         int sent = 0;
         int produced = 0;
-        for (int i = 0; i < 200; i++)
+        for (int i = 0; i < frameCount; i++)
         {
             if (gapMs > 0 && i == gapAfterFrame)
                 await Task.Delay(gapMs, ct); // simulated Wi-Fi pull
@@ -91,10 +95,11 @@ public class LoopbackTests
                 client.SendAudio(packet.AsSpan(0, len), seq, ts);
                 sent++;
             }
-            await Task.Delay(5, ct);
+            if (sendDelayMs > 0)
+                await Task.Delay(sendDelayMs, ct);
         }
 
-        await Task.Delay(600, ct);
+        await Task.Delay(waitAfterMs, ct);
         await client.SendControlAsync(new Bye("test-done"), ct);
         await Task.Delay(200, ct);
         return (sent, backend);
@@ -108,6 +113,29 @@ public class LoopbackTests
         Assert.True(sent >= 190, $"only {sent} packets sent");
         // 200 frames x 480 samples = 96000; allow for jitter-buffer tail still held
         Assert.True(backend.Count > 80000, $"only {backend.Count} samples decoded");
+    }
+
+    [Fact]
+    public async Task FullLoopback_PlainAudio_Decodes()
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        (int sent, CollectBackend backend) = await RunSession(
+            dropEvery: 0, cts.Token, audioEncrypted: false);
+        Assert.True(sent >= 190, $"only {sent} packets sent");
+        Assert.True(backend.Count > 80000, $"only {backend.Count} samples decoded");
+    }
+
+    [Fact]
+    public async Task BurstyInput_IsPlayedAtRealTimeRate()
+    {
+        var flat = new PipelineOptions { NoiseSuppression = false, Agc = false };
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        (_, CollectBackend backend) = await RunSession(
+            dropEvery: 0, cts.Token, options: flat, frameCount: 100,
+            sendDelayMs: 0, waitAfterMs: 1200);
+        Assert.True(backend.Count > 40000, $"only {backend.Count} samples decoded");
+        Assert.True(backend.WriteSpanMs >= 700,
+            $"100 frames played in {backend.WriteSpanMs:F0} ms instead of real time");
     }
 
     [Fact]
@@ -147,6 +175,18 @@ public class LoopbackTests
     }
 
     [Fact]
+    public async Task TcpAudio_PlainTransportDecodes()
+    {
+        var flat = new PipelineOptions { NoiseSuppression = false, Agc = false };
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        (int sent, CollectBackend backend) = await RunSession(
+            dropEvery: 0, cts.Token, options: flat, tcpAudio: true, audioEncrypted: false);
+        Assert.True(sent >= 190, $"only {sent} packets sent");
+        Assert.True(backend.Count > 80000, $"only {backend.Count} samples decoded over plain TCP");
+        Assert.InRange(backend.Peak, 0.20f, 0.30f);
+    }
+
+    [Fact]
     public async Task FiveSecondGap_SilenceThenAutoRecovery()
     {
         // M2 accept: Wi-Fi pull 5 s → silence → stream resumes without restart.
@@ -154,8 +194,33 @@ public class LoopbackTests
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(90));
         (int sent, CollectBackend backend) = await RunSession(dropEvery: 0, cts.Token, options: flat, gapAfterFrame: 100, gapMs: 5000);
         Assert.True(sent >= 190, $"only {sent} packets sent");
-        Assert.True(backend.Count > 80000, $"stream did not recover after the gap: {backend.Count} samples");
+        Assert.True(backend.Count is > 80000 and <= 120000,
+            $"stream did not recover cleanly after the gap: {backend.Count} samples");
         Assert.InRange(backend.Peak, 0.20f, 0.30f);
+    }
+
+    [Fact]
+    public async Task PlainServer_RejectsClientWithoutPlainCapability()
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        int port = FreePort();
+        using var identity = ServerIdentity.Create();
+        using var server = new RasaMicServer(
+            identity, new CollectBackend(), port, audioEncrypted: false);
+        Task serverTask = server.RunAsync(cts.Token);
+        await WaitListening(server, cts.Token);
+
+        using var tcp = new TcpClient();
+        await tcp.ConnectAsync(IPAddress.Loopback, port, cts.Token);
+        var stream = tcp.GetStream();
+        await ControlFraming.WriteAsync(stream, new Hello(
+            ProtocolConstants.Version, "legacy-client", "Legacy", new byte[] { 1 }, 0), cts.Token);
+        var error = Assert.IsType<RasaMic.Protocol.Error>(
+            await ControlFraming.ReadAsync(stream, cts.Token));
+        Assert.Contains("Update Rasa", error.Message);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
     }
 
     [Fact]

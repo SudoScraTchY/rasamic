@@ -62,6 +62,18 @@ public class JitterBufferTests
     }
 
     [Fact]
+    public async Task StableWindow_ShrinksTargetPromptly()
+    {
+        var jb = new JitterBuffer(targetPackets: 4, minPackets: 1, maxPackets: 4);
+        await Task.Delay(1100);
+        for (uint i = 0; i < 4; i++)
+            jb.Push(i, Payload(10));
+
+        Assert.Equal(JitterResult.Packet, jb.Next(out _, out _, out _));
+        Assert.Equal(3, jb.TargetPackets);
+    }
+
+    [Fact]
     public void DuplicateWithinWindow_NotDoubleCounted()
     {
         var jb = new JitterBuffer(targetPackets: 2);
@@ -85,6 +97,24 @@ public class JitterBufferTests
         Assert.Equal(max, s);
         Assert.Equal(JitterResult.Packet, jb.Next(out s, out _, out _));
         Assert.Equal(0u, s);
+    }
+
+    [Fact]
+    public async Task LargeGap_ResynchronizesWithoutBurstOfPlcFrames()
+    {
+        var jb = new JitterBuffer(targetPackets: 2);
+        jb.Push(0, Payload(10));
+        jb.Push(1, Payload(10));
+        Assert.Equal(JitterResult.Packet, jb.Next(out _, out _, out _));
+
+        await Task.Delay(120);
+        jb.Push(100, Payload(10));
+        jb.Push(101, Payload(10));
+
+        Assert.Equal(JitterResult.Packet, jb.Next(out uint seq, out _, out _));
+        Assert.Equal(100u, seq);
+        Assert.Equal(JitterResult.Packet, jb.Next(out seq, out _, out _));
+        Assert.Equal(101u, seq);
     }
 
     [Fact]

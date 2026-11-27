@@ -246,6 +246,12 @@ void rm_pipeline_get_stats(void* h, rm_stats* out) {
     out->packets_dropped = p->dropped.load();
 }
 
+void rm_pipeline_flush(void* h) {
+    auto* p = static_cast<Pipeline*>(h);
+    if (!p) return;
+    p->tail.store(p->head.load(std::memory_order_acquire), std::memory_order_release);
+}
+
 void* rm_decoder_create(int32_t sample_rate, int32_t channels) {
     int err = 0;
     OpusDecoder* d = opus_decoder_create(sample_rate, channels, &err);

@@ -1,6 +1,7 @@
 using System.Buffers.Text;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using RasaMic.Audio;
 using RasaMic.Protocol;
 
@@ -31,6 +32,7 @@ public sealed class ClientSession : IDisposable
 
     /// <summary>Audio rides the control TCP connection (adb-reverse / USB tunnels that only forward TCP).</summary>
     public bool TcpAudio { get; private set; }
+    public bool AudioEncrypted { get; private set; }
 
     /// <summary>
     /// tunnel: a pre-connected transport (e.g. usbmuxd iOS USB tunnel) used
@@ -52,7 +54,8 @@ public sealed class ClientSession : IDisposable
         }
 
         using var eph = SessionCrypto.CreateEphemeral();
-        var hello = new Hello(ProtocolConstants.Version, Guid.NewGuid().ToString("N"), clientName, SessionCrypto.ExportPublic(eph), features);
+        var hello = new Hello(ProtocolConstants.Version, Guid.NewGuid().ToString("N"), clientName,
+            SessionCrypto.ExportPublic(eph), features | ProtocolConstants.FeaturePlainAudio);
         await ControlFraming.WriteAsync(_stream, hello, ct).ConfigureAwait(false);
 
         var reply = await ControlFraming.ReadAsync(_stream, ct).ConfigureAwait(false);
@@ -76,7 +79,17 @@ public sealed class ClientSession : IDisposable
         PairingCode = SessionCrypto.PairingCode(keys);
         await ControlFraming.WriteAsync(_stream, new PairConfirm(PairingCode), ct).ConfigureAwait(false);
 
-        _sealer = new AesGcmSealer(keys.AudioKey);
+        ControlMessage? ready = await ControlFraming.ReadAsync(_stream, ct).ConfigureAwait(false);
+        if (ready is Error readyError)
+            throw new InvalidDataException($"Server refused the connection: {readyError.Message}");
+        byte[] expectedProof = SessionCrypto.SessionProof(keys, ack.SessionId, ack.AudioEncrypted);
+        if (ready is not SessionReady sessionReady ||
+            sessionReady.SessionId != ack.SessionId ||
+            !CryptographicOperations.FixedTimeEquals(sessionReady.Proof, expectedProof))
+            throw new InvalidDataException("Server did not authenticate the session settings.");
+
+        AudioEncrypted = ack.AudioEncrypted;
+        _sealer = AudioEncrypted ? new AesGcmSealer(keys.AudioKey) : null;
         if (!TcpAudio)
         {
             _udp = new UdpClient();
@@ -86,7 +99,7 @@ public sealed class ClientSession : IDisposable
 
     public void SendAudio(ReadOnlySpan<byte> opusPayload, uint seq, ulong captureTsUs, AudioFlags flags = AudioFlags.None)
     {
-        if (_sealer is null || _stream is null || (!TcpAudio && _udp is null))
+        if (_stream is null || (!TcpAudio && _udp is null) || (AudioEncrypted && _sealer is null))
             throw new InvalidOperationException("Not connected.");
         var header = new AudioPacketHeader
         {
@@ -99,9 +112,19 @@ public sealed class ClientSession : IDisposable
             CaptureTsUs = captureTsUs,
         };
         AudioPacketHeader.Write(_sendBuf, header);
-        AudioPacketHeader.WriteNonce(_nonce, _sessionId, seq, ProtocolConstants.DirectionClientToServer);
-        int sealedLen = _sealer.Seal(opusPayload, _nonce, _sendBuf.AsSpan(0, ProtocolConstants.AudioHeaderSize), _sendBuf.AsSpan(ProtocolConstants.AudioHeaderSize));
-        var packet = _sendBuf.AsSpan(0, ProtocolConstants.AudioHeaderSize + sealedLen);
+        int payloadLen = opusPayload.Length;
+        if (AudioEncrypted)
+        {
+            AudioPacketHeader.WriteNonce(_nonce, _sessionId, seq, ProtocolConstants.DirectionClientToServer);
+            payloadLen = _sealer!.Seal(
+                opusPayload, _nonce, _sendBuf.AsSpan(0, ProtocolConstants.AudioHeaderSize),
+                _sendBuf.AsSpan(ProtocolConstants.AudioHeaderSize));
+        }
+        else
+        {
+            opusPayload.CopyTo(_sendBuf.AsSpan(ProtocolConstants.AudioHeaderSize));
+        }
+        var packet = _sendBuf.AsSpan(0, ProtocolConstants.AudioHeaderSize + payloadLen);
         if (TcpAudio)
         {
             _writeLock.Wait();
@@ -118,6 +141,8 @@ public sealed class ClientSession : IDisposable
     public void RunSender(AudioPipeline pipeline, CancellationToken ct)
     {
         byte[] packet = new byte[512];
+        long frameTicks = System.Diagnostics.Stopwatch.Frequency * pipeline.FrameMs / 1000L;
+        long nextSendTs = 0;
         while (!ct.IsCancellationRequested)
         {
             int len = pipeline.ReadPacket(packet, out uint seq, out ulong ts);
@@ -125,6 +150,23 @@ public sealed class ClientSession : IDisposable
             {
                 try
                 {
+                    long now = System.Diagnostics.Stopwatch.GetTimestamp();
+                    if (nextSendTs != 0)
+                    {
+                        while (now < nextSendTs && !ct.IsCancellationRequested)
+                        {
+                            if (nextSendTs - now > System.Diagnostics.Stopwatch.Frequency / 500L)
+                                Thread.Sleep(1);
+                            else
+                                Thread.SpinWait(32);
+                            now = System.Diagnostics.Stopwatch.GetTimestamp();
+                        }
+                    }
+                    if (ct.IsCancellationRequested)
+                        return;
+                    nextSendTs = nextSendTs == 0 ? now + frameTicks : nextSendTs + frameTicks;
+                    if (now - nextSendTs > frameTicks * 2)
+                        nextSendTs = now + frameTicks;
                     SendAudio(packet.AsSpan(0, len), seq, ts, AudioFlags.Fec);
                 }
                 catch (Exception ex) when (ex is SocketException or ObjectDisposedException or InvalidOperationException)
@@ -147,7 +189,7 @@ public sealed class ClientSession : IDisposable
         finally { _writeLock.Release(); }
     }
 
-    public Task<ControlMessage?> ReadControlAsync(CancellationToken ct = default) =>
+    public ValueTask<ControlMessage?> ReadControlAsync(CancellationToken ct = default) =>
         ControlFraming.ReadAsync(_stream ?? throw new InvalidOperationException("Not connected."), ct);
 
     public void Dispose()

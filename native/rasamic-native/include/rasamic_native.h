@@ -55,6 +55,8 @@ RM_API void rm_pipeline_set_agc(void* h, int32_t enabled);
 RM_API void rm_pipeline_set_bitrate(void* h, int32_t bps);
 RM_API void rm_pipeline_set_dtx(void* h, int32_t enabled);
 RM_API void rm_pipeline_get_stats(void* h, rm_stats* out);
+/* Discard complete queued packets without resetting the sequence. */
+RM_API void rm_pipeline_flush(void* h);
 
 /* Server-side Opus decode helpers (float output). */
 RM_API void*   rm_decoder_create(int32_t sample_rate, int32_t channels);
@@ -70,8 +72,28 @@ RM_API void*   rm_monitor_create(int32_t sample_rate, int32_t channels);
 /* Opens the first playback device whose name contains name_filter (e.g. a
  * PipeWire loopback sink). Returns NULL when no device matches. */
 RM_API void*   rm_monitor_create_named(int32_t sample_rate, int32_t channels, const char* name_filter);
+/* Opens a Windows WASAPI playback device by its stable endpoint ID. */
+RM_API void*   rm_monitor_create_id(int32_t sample_rate, int32_t channels, const char* device_id);
 RM_API int32_t rm_monitor_write(void* h, const float* pcm, int32_t samples);
 RM_API void    rm_monitor_destroy(void* h);
+
+typedef struct rm_monitor_stats {
+    uint32_t capacity_samples;
+    uint32_t queued_samples;
+    uint64_t dropped_samples;
+    uint64_t underrun_samples;
+    uint32_t device_buffer_frames;
+    uint32_t device_period_frames;
+    uint32_t device_sample_rate;
+    uint32_t device_channels;
+} rm_monitor_stats;
+RM_API void rm_monitor_get_stats(void* h, rm_monitor_stats* out);
+
+#define RM_DEVICE_PLAYBACK 0
+#define RM_DEVICE_CAPTURE  1
+/* Callback strings are UTF-8 and remain valid only for the duration of the call. */
+typedef void (*rm_device_callback)(void* user, const char* id, const char* name, int32_t is_default);
+RM_API int32_t rm_devices_enumerate(int32_t device_type, rm_device_callback callback, void* user);
 
 /* Microphone capture. Callback runs on the native RT thread; keep it lock-free. */
 typedef void (*rm_pcm_callback)(void* user, const int16_t* pcm, int32_t samples);

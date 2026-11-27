@@ -3,7 +3,13 @@ using System.Text.Json.Serialization;
 
 namespace RasaMic.Server.App.Services;
 
-public sealed record AppSettings(string MuteHotkey);
+public sealed record AppSettings(
+    string MuteHotkey,
+    int BackendChoice = 0,
+    string? OutputDeviceId = null,
+    string? OutputDeviceName = null,
+    bool AudioEncrypted = true,
+    bool HearOnPc = true);
 
 [JsonSerializable(typeof(AppSettings))]
 internal sealed partial class AppSettingsJsonContext : JsonSerializerContext;

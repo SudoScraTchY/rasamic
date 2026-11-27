@@ -16,6 +16,8 @@ public sealed class JitterBuffer
 {
     private const int Slots = 256;
     private const int MaxPacketSize = 512;
+    private const int MaxGapBeforeResync = 32;
+    private const int StableShrinkMs = 1000;
 
     private readonly byte[][] _payloads = new byte[Slots][];
     private readonly int[] _lens = new int[Slots];
@@ -30,9 +32,10 @@ public sealed class JitterBuffer
     private bool _playing;
     private int _target;
     private long _lastLossTick;
+    private long _lastPushTick;
     private long _stableSinceTick;
 
-    public JitterBuffer(int targetPackets = 2, int minPackets = 1, int maxPackets = 6)
+    public JitterBuffer(int targetPackets = 2, int minPackets = 1, int maxPackets = 4)
     {
         _target = Math.Clamp(targetPackets, minPackets, maxPackets);
         MinPackets = minPackets;
@@ -56,10 +59,12 @@ public sealed class JitterBuffer
             return;
         lock (_gate)
         {
+            long now = Environment.TickCount64;
             if (!_started)
             {
                 _started = true;
                 _nextSeq = seq;
+                _lastPushTick = now;
             }
 
             if (unchecked((int)(seq - _nextSeq)) < 0)
@@ -71,6 +76,18 @@ public sealed class JitterBuffer
                     _target++;
                 return;
             }
+
+            if (seq - _nextSeq > MaxGapBeforeResync && now - _lastPushTick > 100)
+            {
+                Array.Clear(_filled);
+                Depth = 0;
+                _nextSeq = seq;
+                _playing = false;
+                _target = Math.Min(_target, 2);
+                _lastLossTick = now;
+                _stableSinceTick = now;
+            }
+            _lastPushTick = now;
 
             int idx = (int)(seq % Slots);
             if (_filled[idx] && _seqs[idx] != seq)
@@ -117,7 +134,7 @@ public sealed class JitterBuffer
                 LastDwellMs = (System.Diagnostics.Stopwatch.GetTimestamp() - _pushTs[idx]) * TickMs;
 
                 long now = Environment.TickCount64;
-                if (_target > MinPackets && now - _stableSinceTick > 5000)
+                if (_target > MinPackets && now - _stableSinceTick > StableShrinkMs)
                 {
                     _target--;
                     _stableSinceTick = now;

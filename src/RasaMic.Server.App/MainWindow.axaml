@@ -58,13 +58,40 @@
           <TextBlock Classes="hint"
                      Text="Address of this PC on your LAN — what the phone app needs if you don't scan the QR code." />
           <Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="8" MinHeight="44">
+            <TextBlock Classes="icon" Text="{x:Static helpers:IconFont.Pairing}" />
+            <TextBlock Grid.Column="1" Text="Encrypt audio" VerticalAlignment="Center" />
+            <ToggleSwitch x:Name="EncryptAudioToggle" Grid.Column="2" IsChecked="{Binding AudioEncrypted}"
+                          OffContent="" OnContent="" IsEnabled="{Binding !IsRunning}" />
+          </Grid>
+          <TextBlock Classes="hint" IsVisible="{Binding !AudioEncrypted}" Foreground="{DynamicResource Primary}"
+                     Text="When off, phone audio is unauthenticated on the LAN. Anyone on the network can inject audio." />
+          <Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="8" MinHeight="44">
             <TextBlock Classes="icon" Text="{x:Static helpers:IconFont.Gain}" />
-            <TextBlock Grid.Column="1" Text="Output" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Text="Hear phone on this PC" VerticalAlignment="Center" />
+            <ToggleSwitch x:Name="HearOnPcToggle" Grid.Column="2" IsChecked="{Binding HearOnPc}"
+                          OffContent="" OnContent="" IsEnabled="{Binding !IsRunning}" />
+          </Grid>
+          <TextBlock Classes="hint" Text="{Binding HearOnPcDescription}" />
+          <TextBlock Classes="hint" Text="Encryption and PC hearing apply on the next server start." />
+          <Grid ColumnDefinitions="20,*,Auto" ColumnSpacing="8" MinHeight="44">
+            <TextBlock Classes="icon" Text="{x:Static helpers:IconFont.Gain}" />
+            <TextBlock Grid.Column="1" Text="Phone audio output" VerticalAlignment="Center" />
             <ComboBox Grid.Column="2" ItemsSource="{Binding BackendChoices}" SelectedIndex="{Binding BackendChoice}"
                     IsEnabled="{Binding !IsRunning}" MinWidth="190" />
           </Grid>
+          <StackPanel Spacing="8" IsVisible="{Binding IsCableSelected}">
+            <Grid ColumnDefinitions="20,*,Auto,Auto" ColumnSpacing="8" MinHeight="44">
+              <TextBlock Classes="icon" Text="{x:Static helpers:IconFont.Gain}" />
+              <TextBlock Grid.Column="1" Text="Cable output" VerticalAlignment="Center" />
+              <ComboBox Grid.Column="2" ItemsSource="{Binding OutputDevices}" SelectedItem="{Binding SelectedOutputDevice}"
+                        IsEnabled="{Binding !IsRunning}" MinWidth="190" />
+              <Button Grid.Column="3" Classes="secondary" Content="Refresh" Command="{Binding RefreshDevicesCommand}"
+                      IsEnabled="{Binding !IsRunning}" MinHeight="36" Padding="12,6" FontSize="13" />
+            </Grid>
+            <TextBlock Classes="hint" Text="{Binding OutputDeviceStatus}" />
+          </StackPanel>
           <TextBlock Classes="hint"
-                     Text="Monitor plays through your speakers. Rasa Mic (driver) exposes a virtual microphone in Windows once the test-signed driver is installed." />
+                     Text="Monitor is PC-speaker self-monitoring, not a virtual microphone. Rasa Mic uses the project's test-signed driver. VB-CABLE uses an installed signed driver." />
           <TextBlock Classes="hint"
                      Text="Start listens on your LAN and advertises this server by name (mDNS + UDP beacon). Keep the phone on the same Wi-Fi." />
         </StackPanel>
@@ -82,7 +109,7 @@
           </Grid>
           <Grid ColumnDefinitions="20,*" ColumnSpacing="12">
             <Border Classes="chip"><TextBlock Classes="chip" Text="2" /></Border>
-            <TextBlock Grid.Column="1" Text="Scan the code in the app. It pins this server's key, so the audio link is encrypted." />
+            <TextBlock Grid.Column="1" Text="Paste the pairing payload below into the phone app. It pins this server's identity." />
           </Grid>
           <Grid ColumnDefinitions="20,*" ColumnSpacing="12">
             <Border Classes="chip"><TextBlock Classes="chip" Text="3" /></Border>

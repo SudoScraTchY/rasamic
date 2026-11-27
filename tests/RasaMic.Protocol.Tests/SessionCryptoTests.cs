@@ -134,6 +134,19 @@ public class SessionCryptoTests
     }
 
     [Fact]
+    public void SessionProof_BindsEncryptionModeAndSession()
+    {
+        var (client, server, identity) = Handshake();
+        using (identity)
+        {
+            byte[] encrypted = SessionCrypto.SessionProof(client, 42, true);
+            Assert.Equal(encrypted, SessionCrypto.SessionProof(server, 42, true));
+            Assert.False(encrypted.SequenceEqual(SessionCrypto.SessionProof(server, 42, false)));
+            Assert.False(encrypted.SequenceEqual(SessionCrypto.SessionProof(server, 43, true)));
+        }
+    }
+
+    [Fact]
     public void ResumeProof_DeterministicAndKeyBound()
     {
         byte[] key1 = new byte[32]; key1[0] = 1;

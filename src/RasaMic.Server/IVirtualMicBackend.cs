@@ -14,3 +14,10 @@ public interface IVirtualMicBackend : IDisposable
     void Write(ReadOnlySpan<float> pcm);
     void Stop();
 }
+
+public interface IAudioOutputDiagnostics
+{
+    double BufferedMs { get; }
+    double DeviceBufferMs { get; }
+    ulong DroppedSamples { get; }
+}

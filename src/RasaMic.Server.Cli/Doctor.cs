@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using RasaMic.Audio;
 using RasaMic.Server;
 
 namespace RasaMic.Server.Cli;
@@ -36,7 +37,25 @@ public static class Doctor
         else if (OperatingSystem.IsWindows())
         {
             Console.WriteLine("Driverless demo works now: rasamicd --monitor");
-            Console.WriteLine("Virtual mic driver: see docs/windows-driver-feed.md (test-signed install).");
+            Console.WriteLine("External cable (recommended): install VB-CABLE from https://vb-audio.com/Cable/");
+            try
+            {
+                var playback = AudioDeviceEnumerator.EnumeratePlayback();
+                var capture = AudioDeviceEnumerator.EnumerateCapture();
+                bool cableInput = playback.Any(d => d.Name.Contains("CABLE Input", StringComparison.OrdinalIgnoreCase));
+                bool cableOutput = capture.Any(d => d.Name.Contains("CABLE Output", StringComparison.OrdinalIgnoreCase));
+                Console.WriteLine($"VB-CABLE input:  {(cableInput ? "found" : "MISSING")}");
+                Console.WriteLine($"VB-CABLE output: {(cableOutput ? "found" : "MISSING")}");
+                if (cableInput && cableOutput)
+                    Console.WriteLine("Start with: rasamicd --cable; select CABLE Output as the microphone in Discord/OBS.");
+                else
+                    Console.WriteLine("Install VB-CABLE, then run: rasamicd --list-outputs");
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or DllNotFoundException or EntryPointNotFoundException)
+            {
+                Console.WriteLine($"Audio endpoint check failed: {ex.Message}");
+            }
+            Console.WriteLine("Project driver: see docs/windows-driver-feed.md (test-signed install).");
             Console.WriteLine($"Auto-start: rasamicd --autostart enable (HKCU Run key)");
         }
         else if (OperatingSystem.IsMacOS())

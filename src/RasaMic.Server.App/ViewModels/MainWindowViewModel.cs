@@ -9,6 +9,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using QRCoder;
+using RasaMic.Audio;
 using RasaMic.Core.Discovery;
 using RasaMic.Protocol;
 using RasaMic.Server.App.Services;
@@ -18,8 +19,12 @@ namespace RasaMic.Server.App.ViewModels;
 
 public partial class MainWindowViewModel : ObservableObject, IDisposable
 {
+    private const int WindowsCableBackendIndex = 2;
+
     private readonly Func<IVirtualMicBackend>? _backendFactory;
+    private readonly Func<IReadOnlyList<AudioDevice>> _outputDeviceProvider;
     private readonly DispatcherTimer _sessionTimer;
+    private AppSettings _settings;
     private RasaMicServer? _server;
     private ServerIdentity? _identity;
     private CancellationTokenSource? _cts;
@@ -30,18 +35,31 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private HotkeyService? _hotkeys;
     private Hotkey _hotkey;
 
-    public MainWindowViewModel(Func<IVirtualMicBackend>? backendFactory = null)
+    public MainWindowViewModel(
+        Func<IVirtualMicBackend>? backendFactory = null,
+        Func<IReadOnlyList<AudioDevice>>? outputDeviceProvider = null,
+        AppSettings? settings = null)
     {
         _backendFactory = backendFactory;
-        _hotkey = Hotkey.TryParse(SettingsStore.Load().MuteHotkey, out Hotkey saved) ? saved : Hotkey.Default;
+        _outputDeviceProvider = outputDeviceProvider ?? AudioDeviceEnumerator.EnumeratePlayback;
+        _settings = settings ?? SettingsStore.Load();
+        _hotkey = Hotkey.TryParse(_settings.MuteHotkey, out Hotkey saved) ? saved : Hotkey.Default;
         _hotkeyText = _hotkey.ToString();
+        _backendChoice = _settings.BackendChoice;
+        if (_backendChoice < 0 || _backendChoice >= BackendChoices.Count)
+            _backendChoice = 0;
+        _audioEncrypted = _settings.AudioEncrypted;
+        _hearOnPc = _settings.HearOnPc;
+        _hearOnPcDescription = GetHearOnPcDescription();
         _localIps = string.Join(" · ", LanIps());
+        if (IsCableSelected)
+            RefreshOutputDevices();
         _sessionTimer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) =>
         {
             HasSession = _server?.HasActiveSession == true;
             Stats? s = _server?.LastSessionStats;
             StatsText = s is null ? "" :
-                $"{s.Packets} pkt/s · {s.Bytes / 1024.0:F1} KB/s · loss {s.LossPct:F1}% · jitter {s.JitterMs:F1} ms · buffer {s.BufferMs:F0} ms · RTT {s.RttMs:F1} ms";
+                $"{s.Packets} pkt/s · {s.Bytes / 1024.0:F1} KB/s · loss {s.LossPct:F1}% · jitter {s.JitterMs:F1} ms · buffer {s.BufferMs:F0} ms · output {s.OutputBufferMs:F0} ms · RTT {s.RttMs:F1} ms";
             UpdateTally();
         });
         UpdateTally();
@@ -96,18 +114,118 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private int _backendChoice;
 
-    public IReadOnlyList<string> BackendChoices { get; } =
-        OperatingSystem.IsWindows() ? ["Monitor (speakers)", "Rasa Mic (driver)"] :
-        OperatingSystem.IsLinux() ? ["Monitor (speakers)", "PipeWire virtual mic"] :
-        ["Monitor (speakers)", "macOS HAL mic"];
+    [ObservableProperty]
+    private bool _audioEncrypted;
 
-    private IVirtualMicBackend CreateBackend() => _backendFactory?.Invoke() ?? BackendChoice switch
+    [ObservableProperty]
+    private bool _hearOnPc;
+
+    [ObservableProperty]
+    private string _hearOnPcDescription = "";
+
+    [ObservableProperty]
+    private AudioDevice? _selectedOutputDevice;
+
+    [ObservableProperty]
+    private string _outputDeviceStatus = "Choose the playback endpoint that receives phone audio.";
+
+    public ObservableCollection<AudioDevice> OutputDevices { get; } = new();
+
+    public bool IsCableSelected => OperatingSystem.IsWindows() && BackendChoice == WindowsCableBackendIndex;
+
+    public IReadOnlyList<string> BackendChoices { get; } =
+        OperatingSystem.IsWindows() ? ["Monitor (PC speakers)", "Rasa Mic (virtual mic)", "VB-CABLE (virtual mic)"] :
+        OperatingSystem.IsLinux() ? ["Monitor (PC speakers)", "PipeWire virtual mic"] :
+        ["Monitor (PC speakers)", "macOS HAL virtual mic"];
+
+    private IVirtualMicBackend CreateBackend()
     {
-        1 when OperatingSystem.IsWindows() => new WindowsDriverBackend(),
-        1 when OperatingSystem.IsLinux() => new PipeWireBackend(),
-        1 when OperatingSystem.IsMacOS() => new MacHalBackend(),
-        _ => new MonitorBackend(),
-    };
+        // An injected factory supplies a complete backend, preserving test and host overrides.
+        if (_backendFactory is not null)
+            return _backendFactory.Invoke();
+
+        IVirtualMicBackend primary = BackendChoice switch
+        {
+            WindowsCableBackendIndex when OperatingSystem.IsWindows() =>
+                SelectedOutputDevice is { } device ? new ExternalCableBackend(device) : new ExternalCableBackend(),
+            1 when OperatingSystem.IsWindows() => new WindowsDriverBackend(),
+            1 when OperatingSystem.IsLinux() => new PipeWireBackend(),
+            1 when OperatingSystem.IsMacOS() => new MacHalBackend(),
+            _ => HearOnPc ? new MonitorBackend() : new SilentBackend(),
+        };
+        return BackendChoice != 0 && HearOnPc ? new SelfMonitoringBackend(primary) : primary;
+    }
+
+    partial void OnBackendChoiceChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsCableSelected));
+        HearOnPcDescription = GetHearOnPcDescription();
+        if (IsCableSelected)
+            RefreshOutputDevices();
+    }
+
+    partial void OnHearOnPcChanged(bool value) => HearOnPcDescription = GetHearOnPcDescription();
+
+    private string GetHearOnPcDescription() => BackendChoice == 0
+        ? HearOnPc
+            ? "Monitor sends phone audio to this PC's speakers for self-monitoring; it does not create a virtual microphone."
+            : "Monitor has no PC output while phone hearing is off; it does not create a virtual microphone."
+        : HearOnPc
+            ? "Phone audio plays on this PC and is sent to the selected virtual microphone."
+            : "Phone audio goes only to the selected virtual microphone.";
+
+    partial void OnSelectedOutputDeviceChanged(AudioDevice? value)
+    {
+        OutputDeviceStatus = value is null
+            ? "No playback endpoint selected. Install VB-CABLE and click Refresh, or choose an available endpoint."
+            : "Rasa plays to this endpoint. In Discord/OBS, select the matching CABLE Output recording device.";
+    }
+
+    [RelayCommand]
+    private void RefreshDevices() => RefreshOutputDevices();
+
+    private void RefreshOutputDevices()
+    {
+        OutputDevices.Clear();
+        SelectedOutputDevice = null;
+        if (!OperatingSystem.IsWindows())
+        {
+            OutputDeviceStatus = "External audio cables are configured on Windows.";
+            return;
+        }
+
+        try
+        {
+            foreach (var device in _outputDeviceProvider())
+                OutputDevices.Add(device);
+
+            if (OutputDevices.Count == 0)
+            {
+                OutputDeviceStatus = "No playback endpoints were found.";
+                return;
+            }
+
+            SelectedOutputDevice =
+                OutputDevices.FirstOrDefault(d => d.Id == _settings.OutputDeviceId && !string.IsNullOrEmpty(d.Id))
+                ?? OutputDevices.FirstOrDefault(d => d.Name == _settings.OutputDeviceName)
+                ?? OutputDevices.FirstOrDefault(d => d.Name.Contains("CABLE Input", StringComparison.OrdinalIgnoreCase));
+            OutputDeviceStatus = SelectedOutputDevice is null
+                ? "No CABLE Input endpoint found. Install VB-CABLE and click Refresh, or choose another playback endpoint."
+                : "Rasa plays to this endpoint. In Discord/OBS, select the matching CABLE Output recording device.";
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or PlatformNotSupportedException or DllNotFoundException or EntryPointNotFoundException)
+        {
+            OutputDeviceStatus = $"Unable to list playback endpoints: {ex.Message}";
+        }
+    }
+
+    private void SaveSettings()
+    {
+        _settings = new AppSettings(
+            _hotkey.ToString(), BackendChoice, SelectedOutputDevice?.Id, SelectedOutputDevice?.Name,
+            AudioEncrypted, HearOnPc);
+        SettingsStore.Save(_settings);
+    }
 
     private static string[] LanIps()
     {
@@ -145,11 +263,18 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         if (IsRunning)
             return;
+        IVirtualMicBackend? pendingBackend = null;
+        string? backendName = null;
         try
         {
+            SaveSettings();
             _identity = ServerIdentityStore.LoadOrCreate();
-            IVirtualMicBackend backend = CreateBackend();
-            _server = new RasaMicServer(_identity, backend, Port, ServerName);
+            pendingBackend = CreateBackend();
+            backendName = pendingBackend.Name;
+            if (pendingBackend is ExternalCableBackend cable)
+                cable.Validate();
+            _server = new RasaMicServer(_identity, pendingBackend, Port, ServerName, audioEncrypted: AudioEncrypted);
+            pendingBackend = null;
             _server.LocalMuted = IsMuted;
             _server.LocalGainDb = GainDb;
             _cts = new CancellationTokenSource();
@@ -166,6 +291,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             Status = $"Listening on TCP/UDP {_server.Port}";
             UpdateTally();
             AddLog($"Server id {_identity.ServerId}");
+            AddLog($"Output: {backendName}");
+            AddLog(AudioEncrypted ? "Audio encryption on." : "Audio encryption off; LAN audio is unauthenticated.");
 
             _beacon = new BeaconBroadcaster(new ServerBeacon(ProtocolConstants.Version, _identity.ServerId, ServerName, _server.Port));
             _beaconTask = _beacon.RunAsync(_cts.Token);
@@ -189,6 +316,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
+            pendingBackend?.Dispose();
             Status = $"Failed: {ex.Message}";
             await StopAsync();
         }
@@ -213,6 +341,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _runTask = null;
         _cts?.Dispose();
         _cts = null;
+        _server?.Dispose();
         _server = null;
         _identity?.Dispose();
         _identity = null;
@@ -262,7 +391,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private void OnHotkeyCaptured(Hotkey hotkey) => Dispatcher.UIThread.Post(() =>
     {
         _hotkey = hotkey;
-        SettingsStore.Save(new AppSettings(hotkey.ToString()));
+        SaveSettings();
         HotkeyText = hotkey.ToString();
         IsCapturingHotkey = false;
         AddLog($"Mute hotkey set to {hotkey}");
@@ -299,6 +428,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             Log.RemoveAt(0);
     }
 
+    private sealed class SilentBackend : IVirtualMicBackend
+    {
+        public string Name => "Silent (no output)";
+        public void Start(int sampleRate, int channels) { }
+        public void Write(ReadOnlySpan<float> pcm) { }
+        public void Stop() { }
+        public void Dispose() { }
+    }
+
     public void Dispose()
     {
         _sessionTimer.Stop();
@@ -309,6 +447,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _beacon?.Dispose();
         _cts?.Cancel();
         _cts?.Dispose();
+        _server?.Dispose();
         _identity?.Dispose();
     }
 }

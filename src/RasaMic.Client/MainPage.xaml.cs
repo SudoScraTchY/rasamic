@@ -16,6 +16,7 @@ public partial class MainPage : ContentPage
     private CancellationTokenSource? _cts;
     private CancellationTokenSource? _senderCts;
     private Thread? _senderThread;
+    private ClientSession? _senderSession;
     private TcpListener? _usbListener;
     private ServerBrowser? _browser;
     private readonly Dictionary<string, Border> _foundRows = new();
@@ -532,6 +533,8 @@ public partial class MainPage : ContentPage
             return;
         _senderCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
         AudioPipeline pipeline = _pipeline;
+        pipeline.Flush();
+        _senderSession = session;
         CancellationToken token = _senderCts.Token;
         _senderThread = new Thread(() => session.RunSender(pipeline, token))
         {
@@ -544,10 +547,12 @@ public partial class MainPage : ContentPage
     private void StopSender()
     {
         _senderCts?.Cancel();
-        _senderThread?.Join(500);
+        _senderSession?.Dispose();
+        _senderThread?.Join();
         _senderThread = null;
         _senderCts?.Dispose();
         _senderCts = null;
+        _senderSession = null;
     }
 
     private void Disconnect()

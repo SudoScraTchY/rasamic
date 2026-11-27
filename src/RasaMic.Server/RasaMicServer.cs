@@ -10,8 +10,8 @@ namespace RasaMic.Server;
 
 /// <summary>
 /// Rasa server engine: TCP control handshake (ECDH + pairing code), UDP audio receive,
-/// AES-GCM open, adaptive jitter buffer, Opus decode with PLC, virtual-mic backend write.
-/// v1 supports one active audio session; extra clients receive Error("Busy").
+/// optional AES-GCM open, paced jitter playout, Opus decode with PLC, virtual-mic backend write.
+/// v2 supports one active audio session; extra clients receive Error("Busy").
 /// </summary>
 public sealed class RasaMicServer : IDisposable
 {
@@ -19,16 +19,21 @@ public sealed class RasaMicServer : IDisposable
     private readonly IVirtualMicBackend _backend;
     private readonly int _port;
     private readonly string _serverName;
+    private readonly bool _audioEncrypted;
     private int _activeSession;
     private int _localMuted;
     private float _localGainDb;
 
-    public RasaMicServer(ServerIdentity identity, IVirtualMicBackend backend, int port = ProtocolConstants.ControlPort, string? serverName = null)
+    public RasaMicServer(
+        ServerIdentity identity, IVirtualMicBackend backend,
+        int port = ProtocolConstants.ControlPort, string? serverName = null,
+        bool audioEncrypted = true)
     {
         _identity = identity;
         _backend = backend;
         _port = port;
         _serverName = serverName ?? Environment.MachineName;
+        _audioEncrypted = audioEncrypted;
     }
 
     public int Port { get; private set; }
@@ -89,7 +94,7 @@ public sealed class RasaMicServer : IDisposable
 
     private async Task HandleClientAsync(TcpClient tcp, CancellationToken ct)
     {
-        using var _ = tcp;
+        using var tcpLease = tcp;
         tcp.NoDelay = true;
         NetworkStream stream = tcp.GetStream();
         try
@@ -100,6 +105,13 @@ public sealed class RasaMicServer : IDisposable
                 hello.ProtoVer != ProtocolConstants.Version)
             {
                 await ControlFraming.WriteAsync(stream, new Error("Unsupported protocol version", "upgrade"), ct).ConfigureAwait(false);
+                return;
+            }
+
+            if (!_audioEncrypted && (hello.Features & ProtocolConstants.FeaturePlainAudio) == 0)
+            {
+                await ControlFraming.WriteAsync(stream, new Error(
+                    "This server requires a client that supports plain audio. Update Rasa."), ct).ConfigureAwait(false);
                 return;
             }
 
@@ -116,7 +128,7 @@ public sealed class RasaMicServer : IDisposable
                 var ack = new HelloAck(
                     _identity.ServerId, _serverName,
                     SessionCrypto.ExportPublic(serverEph), _identity.StaticPublicKey,
-                    sessionId, ProtocolConstants.Version);
+                    sessionId, ProtocolConstants.Version, _audioEncrypted);
                 await ControlFraming.WriteAsync(stream, ack, ct).ConfigureAwait(false);
 
                 SessionKeys keys = SessionCrypto.DeriveServer(serverEph, hello.EphPub, _identity);
@@ -126,6 +138,8 @@ public sealed class RasaMicServer : IDisposable
                     await ControlFraming.WriteAsync(stream, new Error("Pairing code mismatch"), ct).ConfigureAwait(false);
                     return;
                 }
+                await ControlFraming.WriteAsync(stream, new SessionReady(
+                    sessionId, SessionCrypto.SessionProof(keys, sessionId, _audioEncrypted)), ct).ConfigureAwait(false);
                 LastClientName = hello.ClientName;
                 LastSessionChannels = (hello.Features & ProtocolConstants.FeatureStereo) != 0 ? 2 : 1;
                 SessionCount++;
@@ -143,9 +157,12 @@ public sealed class RasaMicServer : IDisposable
                             byte[]? frame = await ControlFraming.ReadRawAsync(stream, ct).ConfigureAwait(false);
                             if (frame is null)
                                 break;
-                            if (frame.Length >= ProtocolConstants.AudioHeaderSize + ProtocolConstants.AesGcmTagSize &&
+                            int audioOverhead = _audioEncrypted ? ProtocolConstants.AesGcmTagSize : 0;
+                            if (frame.Length >= ProtocolConstants.AudioHeaderSize + audioOverhead &&
                                 frame[0] == ProtocolConstants.AudioMagic)
                             {
+                                while (audioFrames.Count >= 8)
+                                    audioFrames.TryDequeue(out _);
                                 audioFrames.Enqueue(frame);
                                 continue;
                             }
@@ -161,7 +178,7 @@ public sealed class RasaMicServer : IDisposable
 
                 using var udp = new UdpClient(new IPEndPoint(IPAddress.Any, Port));
                 int channels = LastSessionChannels;
-                await Task.Run(() => AudioLoop(udp, stream, keys, sessionId, controls, audioFrames, reader, channels, ct), CancellationToken.None).ConfigureAwait(false);
+                await Task.Run(() => AudioLoop(udp, stream, keys, sessionId, controls, audioFrames, reader, channels, _audioEncrypted, ct), CancellationToken.None).ConfigureAwait(false);
             }
             finally
             {
@@ -174,9 +191,9 @@ public sealed class RasaMicServer : IDisposable
     private void AudioLoop(
         UdpClient udp, NetworkStream stream, SessionKeys keys, uint sessionId,
         ConcurrentQueue<ControlMessage> controls, ConcurrentQueue<byte[]> audioFrames,
-        Task controlReader, int channels, CancellationToken ct)
+        Task controlReader, int channels, bool audioEncrypted, CancellationToken ct)
     {
-        using var sealer = new AesGcmSealer(keys.AudioKey);
+        using var sealer = audioEncrypted ? new AesGcmSealer(keys.AudioKey) : null;
         using var decoder = new OpusDecoder(48000, channels);
         var jitter = new JitterBuffer();
         var replay = new ReplayWindow();
@@ -192,7 +209,7 @@ public sealed class RasaMicServer : IDisposable
         bool muted = false;
         bool done = false;
         float linearGain = 1f;
-        udp.Client.ReceiveTimeout = 10;
+        udp.Client.Blocking = false;
 
         var clock = System.Diagnostics.Stopwatch.StartNew();
         long statsPkts = 0, statsBytes = 0, statsGaps = 0;
@@ -208,6 +225,8 @@ public sealed class RasaMicServer : IDisposable
         var dwellSamples = new double[512]; int dwellN = 0;
         var writeSamples = new double[512]; int writeN = 0;
         long lastWriteTs = 0;
+        long nextPlayoutTs = 0;
+        int playoutSamples = 480;
         static double P95(double[] a, int n)
         {
             if (n == 0) return 0;
@@ -238,7 +257,9 @@ public sealed class RasaMicServer : IDisposable
 
         void Ingest(byte[] buf, int n)
         {
-            if (n < ProtocolConstants.AudioHeaderSize + ProtocolConstants.AesGcmTagSize)
+            int tagSize = audioEncrypted ? ProtocolConstants.AesGcmTagSize : 0;
+            if (n < ProtocolConstants.AudioHeaderSize + tagSize ||
+                n - ProtocolConstants.AudioHeaderSize > plain.Length)
                 return;
             AudioPacketHeader h = AudioPacketHeader.Read(buf);
             if (h.Magic != ProtocolConstants.AudioMagic ||
@@ -247,14 +268,23 @@ public sealed class RasaMicServer : IDisposable
                 h.SessionId != sessionId ||
                 !replay.CheckAndUpdate(h.Seq))
                 return;
-            AudioPacketHeader.WriteNonce(nonce, h.SessionId, h.Seq, ProtocolConstants.DirectionClientToServer);
             try
             {
-                int len = sealer.Open(
-                    buf.AsSpan(ProtocolConstants.AudioHeaderSize, n - ProtocolConstants.AudioHeaderSize),
-                    nonce,
-                    buf.AsSpan(0, ProtocolConstants.AudioHeaderSize),
-                    plain);
+                int len;
+                if (audioEncrypted)
+                {
+                    AudioPacketHeader.WriteNonce(nonce, h.SessionId, h.Seq, ProtocolConstants.DirectionClientToServer);
+                    len = sealer!.Open(
+                        buf.AsSpan(ProtocolConstants.AudioHeaderSize, n - ProtocolConstants.AudioHeaderSize),
+                        nonce,
+                        buf.AsSpan(0, ProtocolConstants.AudioHeaderSize),
+                        plain);
+                }
+                else
+                {
+                    len = n - ProtocolConstants.AudioHeaderSize;
+                    buf.AsSpan(ProtocolConstants.AudioHeaderSize, len).CopyTo(plain);
+                }
                 jitter.Push(h.Seq, plain.AsSpan(0, len));
                 statsPkts++;
                 statsBytes += n;
@@ -273,114 +303,168 @@ public sealed class RasaMicServer : IDisposable
             catch (CryptographicException) { /* forged or corrupted packet */ }
         }
 
-        while (!ct.IsCancellationRequested && !done)
+        try
         {
-            while (controls.TryDequeue(out ControlMessage? msg))
+            while (!ct.IsCancellationRequested && !done)
             {
-                switch (msg)
+                while (controls.TryDequeue(out ControlMessage? msg))
                 {
-                    case SetMute m:
-                        muted = m.Muted;
+                    switch (msg)
+                    {
+                        case SetMute m:
+                            muted = m.Muted;
+                            break;
+                        case SetGain g:
+                            linearGain = MathF.Pow(10f, Math.Clamp(g.Db, -24f, 24f) / 20f);
+                            break;
+                        case Ping p:
+                            TrySend(new Pong(p.TsUs));
+                            break;
+                        case Pong:
+                            if (pingSentTs != 0)
+                            {
+                                rttMs = (System.Diagnostics.Stopwatch.GetTimestamp() - pingSentTs) * 1000f / freq;
+                                pingSentTs = 0;
+                            }
+                            break;
+                        case Bye:
+                            done = true;
+                            break;
+                    }
+                }
+                if (controlReader.IsCompleted && controls.IsEmpty && audioFrames.IsEmpty)
+                    done = true;
+
+                for (int i = 0; i < 8 && audioFrames.TryDequeue(out byte[]? frame); i++)
+                    Ingest(frame, frame.Length);
+
+                bool receivedAudio = false;
+                for (int i = 0; i < 128; i++)
+                {
+                    int n;
+                    try
+                    {
+                        n = udp.Client.ReceiveFrom(recv, ref remote);
+                    }
+                    catch (SocketException ex) when (ex.SocketErrorCode is SocketError.WouldBlock or SocketError.TimedOut)
+                    {
                         break;
-                    case SetGain g:
-                        linearGain = MathF.Pow(10f, Math.Clamp(g.Db, -24f, 24f) / 20f);
+                    }
+                    if (n <= 0)
                         break;
-                    case Ping p:
-                        TrySend(new Pong(p.TsUs));
-                        break;
-                    case Pong:
-                        if (pingSentTs != 0)
+                    Ingest(recv, n);
+                    receivedAudio = true;
+                }
+
+                long nowTs = System.Diagnostics.Stopwatch.GetTimestamp();
+                if (nextPlayoutTs == 0 || nowTs >= nextPlayoutTs)
+                {
+                    JitterResult r = jitter.Next(out _, out byte[] payload, out int plen);
+                    if (r == JitterResult.Empty)
+                    {
+                        nextPlayoutTs = 0;
+                    }
+                    else
+                    {
+                        if (nextPlayoutTs == 0)
+                            nextPlayoutTs = nowTs;
+                        long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+                        int samples = r == JitterResult.Packet
+                            ? decoder.Decode(payload.AsSpan(0, plen), pcm)
+                            : decoder.Plc(pcm.AsSpan(0, playoutSamples * channels));
+                        if (samples <= 0)
                         {
-                            rttMs = (System.Diagnostics.Stopwatch.GetTimestamp() - pingSentTs) * 1000f / freq;
-                            pingSentTs = 0;
+                            samples = decoder.Plc(pcm.AsSpan(0, playoutSamples * channels));
+                            if (samples <= 0)
+                            {
+                                Array.Clear(pcm, 0, playoutSamples * channels);
+                                samples = playoutSamples;
+                            }
                         }
-                        break;
-                    case Bye:
-                        done = true;
-                        break;
+                        playoutSamples = samples;
+                        if (decodeN < decodeSamples.Length)
+                            decodeSamples[decodeN++] = (System.Diagnostics.Stopwatch.GetTimestamp() - t0) * 1000.0 / freq;
+                        if (r == JitterResult.Packet && dwellN < dwellSamples.Length)
+                            dwellSamples[dwellN++] = jitter.LastDwellMs;
+                        long wTs = System.Diagnostics.Stopwatch.GetTimestamp();
+                        if (lastWriteTs != 0 && writeN < writeSamples.Length)
+                            writeSamples[writeN++] = (wTs - lastWriteTs) * 1000.0 / freq;
+                        lastWriteTs = wTs;
+                        int values = samples * channels;
+                        if (linearGain != 1f)
+                            PcmPostGain.Apply(pcm.AsSpan(0, values), linearGain);
+                        float localDb = LocalGainDb;
+                        if (localDb != 0f)
+                            PcmPostGain.Apply(pcm.AsSpan(0, values), MathF.Pow(10f, localDb / 20f));
+                        if (muted || LocalMuted)
+                            Array.Clear(pcm, 0, values);
+                        if (downmix is not null)
+                        {
+                            for (int i = 0; i < samples; i++)
+                                downmix[i] = (pcm[i * 2] + pcm[i * 2 + 1]) * 0.5f;
+                            _backend.Write(downmix.AsSpan(0, samples));
+                        }
+                        else
+                        {
+                            _backend.Write(pcm.AsSpan(0, values));
+                        }
+                        nextPlayoutTs += samples * freq / 48000L;
+                        long afterWriteTs = System.Diagnostics.Stopwatch.GetTimestamp();
+                        if (nextPlayoutTs <= afterWriteTs)
+                            nextPlayoutTs = afterWriteTs + samples * freq / 48000L;
+                    }
                 }
-            }
-            if (controlReader.IsCompleted && controls.IsEmpty && audioFrames.IsEmpty)
-                done = true;
-
-            while (audioFrames.TryDequeue(out byte[]? frame))
-                Ingest(frame, frame.Length);
-
-            int n = 0;
-            try
-            {
-                n = udp.Client.ReceiveFrom(recv, ref remote);
-            }
-            catch (SocketException ex) when (ex.SocketErrorCode == SocketError.TimedOut) { }
-            if (n > 0)
-                Ingest(recv, n);
-
-            JitterResult r;
-            while ((r = jitter.Next(out _, out byte[] payload, out int plen)) != JitterResult.Empty)
-            {
-                long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
-                int samples = r == JitterResult.Packet
-                    ? decoder.Decode(payload.AsSpan(0, plen), pcm)
-                    : decoder.Plc(pcm.AsSpan(0, 480 * channels));
-                if (samples <= 0)
-                    continue;
-                if (decodeN < decodeSamples.Length)
-                    decodeSamples[decodeN++] = (System.Diagnostics.Stopwatch.GetTimestamp() - t0) * 1000.0 / freq;
-                if (r == JitterResult.Packet && dwellN < dwellSamples.Length)
-                    dwellSamples[dwellN++] = jitter.LastDwellMs;
-                long wTs = System.Diagnostics.Stopwatch.GetTimestamp();
-                if (lastWriteTs != 0 && writeN < writeSamples.Length)
-                    writeSamples[writeN++] = (wTs - lastWriteTs) * 1000.0 / freq;
-                lastWriteTs = wTs;
-                int values = samples * channels;
-                if (linearGain != 1f)
-                    PcmPostGain.Apply(pcm.AsSpan(0, values), linearGain);
-                float localDb = LocalGainDb;
-                if (localDb != 0f)
-                    PcmPostGain.Apply(pcm.AsSpan(0, values), MathF.Pow(10f, localDb / 20f));
-                if (muted || LocalMuted)
-                    Array.Clear(pcm, 0, values);
-                if (downmix is not null)
+                else if (nextPlayoutTs != 0)
                 {
-                    for (int i = 0; i < samples; i++)
-                        downmix[i] = (pcm[i * 2] + pcm[i * 2 + 1]) * 0.5f;
-                    _backend.Write(downmix.AsSpan(0, samples));
+                    // Thread.Sleep(1) rounds to about 16 ms on Windows and starves 10 ms frames.
+                    while (System.Diagnostics.Stopwatch.GetTimestamp() < nextPlayoutTs)
+                    {
+                        if (nextPlayoutTs - System.Diagnostics.Stopwatch.GetTimestamp() > freq / 1000L)
+                            Thread.Sleep(0);
+                        else
+                            Thread.SpinWait(32);
+                    }
                 }
-                else
+                else if (!receivedAudio)
                 {
-                    _backend.Write(pcm.AsSpan(0, values));
+                    Thread.Sleep(1);
                 }
-            }
 
-            long elapsedMs = clock.ElapsedMilliseconds;
-            if (elapsedMs >= nextStatsMs)
-            {
-                nextStatsMs = elapsedMs + 1000;
-                float lossPct = statsPkts + statsGaps > 0 ? 100f * statsGaps / (statsPkts + statsGaps) : 0f;
-                float jitterMs = jitterSamples > 0 ? (float)(jitterAccum / jitterSamples) : 0f;
-                var stats = new Stats(rttMs, lossPct, jitterMs, jitter.Depth * 10f, statsPkts, statsBytes,
-                    (float)P95(decodeSamples, decodeN), (float)P95(dwellSamples, dwellN), (float)P95(writeSamples, writeN));
-                LastSessionStats = stats;
-                TrySend(stats);
-                statsPkts = 0;
-                statsBytes = 0;
-                statsGaps = 0;
-                jitterAccum = 0;
-                jitterSamples = 0;
-                decodeN = 0;
-                dwellN = 0;
-                writeN = 0;
-            }
-            if (elapsedMs >= nextPingMs && pingSentTs == 0)
-            {
-                nextPingMs = elapsedMs + 1000;
-                long ts = System.Diagnostics.Stopwatch.GetTimestamp();
-                if (TrySend(new Ping(ts)))
-                    pingSentTs = ts;
+                long elapsedMs = clock.ElapsedMilliseconds;
+                if (elapsedMs >= nextStatsMs)
+                {
+                    nextStatsMs = elapsedMs + 1000;
+                    float lossPct = statsPkts + statsGaps > 0 ? 100f * statsGaps / (statsPkts + statsGaps) : 0f;
+                    float jitterMs = jitterSamples > 0 ? (float)(jitterAccum / jitterSamples) : 0f;
+                    var stats = new Stats(rttMs, lossPct, jitterMs, jitter.Depth * 10f, statsPkts, statsBytes,
+                        (float)P95(decodeSamples, decodeN), (float)P95(dwellSamples, dwellN), (float)P95(writeSamples, writeN),
+                        _backend is IAudioOutputDiagnostics output ? (float)output.BufferedMs : 0,
+                        _backend is IAudioOutputDiagnostics diagnostics ? diagnostics.DroppedSamples : 0,
+                        _backend is IAudioOutputDiagnostics device ? (float)device.DeviceBufferMs : 0);
+                    LastSessionStats = stats;
+                    TrySend(stats);
+                    statsPkts = 0;
+                    statsBytes = 0;
+                    statsGaps = 0;
+                    jitterAccum = 0;
+                    jitterSamples = 0;
+                    decodeN = 0;
+                    dwellN = 0;
+                    writeN = 0;
+                }
+                if (elapsedMs >= nextPingMs && pingSentTs == 0)
+                {
+                    nextPingMs = elapsedMs + 1000;
+                    long ts = System.Diagnostics.Stopwatch.GetTimestamp();
+                    if (TrySend(new Ping(ts)))
+                        pingSentTs = ts;
+                }
             }
         }
-
-        _backend.Stop();
+        finally
+        {
+            _backend.Stop();
+        }
     }
 
     private static string[] GetLocalIPv4()
@@ -398,5 +482,5 @@ public sealed class RasaMicServer : IDisposable
         }
     }
 
-    public void Dispose() { }
+    public void Dispose() => _backend.Dispose();
 }

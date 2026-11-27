@@ -2,7 +2,7 @@ namespace RasaMic.Protocol;
 
 public static class ProtocolConstants
 {
-    public const int Version = 1;
+    public const int Version = 2;
     public const int ControlPort = 47300;
     public const int AudioPort = 47300;
     public const int BeaconPort = 47301;
@@ -16,4 +16,5 @@ public static class ProtocolConstants
     public const uint DirectionClientToServer = 0;
     public const uint DirectionServerToClient = 1;
     public const long FeatureStereo = 1L << 0; // Hello.Features: client sends interleaved stereo
+    public const long FeaturePlainAudio = 1L << 1; // Hello.Features: client understands server-selected plain audio
 }

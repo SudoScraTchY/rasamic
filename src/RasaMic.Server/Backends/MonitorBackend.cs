@@ -3,12 +3,15 @@ using RasaMic.Audio;
 namespace RasaMic.Server.Backends;
 
 /// <summary>Driverless demo backend: plays received audio on the default speakers.</summary>
-public sealed class MonitorBackend : IVirtualMicBackend
+public sealed class MonitorBackend : IVirtualMicBackend, IAudioOutputDiagnostics
 {
     private MonitorOutput? _output;
 
     public string Name => "Monitor (speakers)";
     public bool StereoCapable => true;
+    public double BufferedMs => _output?.GetStats().BufferedMs ?? 0;
+    public double DeviceBufferMs => _output?.GetStats().DeviceBufferMs ?? 0;
+    public ulong DroppedSamples => _output?.GetStats().DroppedSamples ?? 0;
 
     public void Start(int sampleRate, int channels)
     {
