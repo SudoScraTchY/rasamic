@@ -69,8 +69,11 @@ jobs:
       - name: Package
         shell: bash
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          case "$version" in v*|'') version=0.1.0;; esac
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version=0.1.0
+          fi
           bash tools/scripts/package-release.sh "${{ matrix.rid }}" "${{ matrix.native }}" "$version"
       - uses: actions/upload-artifact@v4
         with:
@@ -82,8 +85,11 @@ jobs:
         run: |
           dotnet tool install -g vpk
           export PATH="$PATH:$HOME/.dotnet/tools"
-          version="${GITHUB_REF_NAME#v}"
-          case "$version" in v*|'') version=0.1.0;; esac
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version=0.1.0
+          fi
           bash tools/scripts/package-velopack.sh "${{ matrix.rid }}" "${{ matrix.native }}" "$version"
       - uses: actions/upload-artifact@v4
         if: startsWith(matrix.rid, 'win-')
@@ -96,6 +102,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          version="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" --verify-tag \
+            --title "Rasa $version" --notes "Rasa $version" || gh release view "$GITHUB_REF_NAME" >/dev/null
           gh release upload "${GITHUB_REF_NAME}" dist/*.zip --clobber
           if [[ "${{ matrix.rid }}" == win-* ]]; then
             gh release upload "${GITHUB_REF_NAME}" dist/velopack-out-${{ matrix.rid }}/* --clobber

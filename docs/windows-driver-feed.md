@@ -1,5 +1,17 @@
 # Windows virtual-mic feed — recon notes (M2)
 
+## External-cable alternative
+
+Windows users can avoid the project driver and test-signing entirely by
+installing [VB-CABLE](https://vb-audio.com/Cable/) and running
+`rasamicd --cable`. Rasa writes to **CABLE Input**; applications record from
+**CABLE Output**. The GUI provides endpoint selection and `rasamicd doctor`
+checks both sides. Rasa does not bundle, extract, install, or remove the vendor
+driver. See [OPERATIONS.md](OPERATIONS.md#windows-external-cable).
+
+The notes below document the project's own driver path for a branded Rasa Mic
+endpoint and remain independent of the external-cable backend.
+
 Read-only inspection of two sources, per plan:
 
 1. Our fork base: `drivers/windows` = clone of [VirtualDrivers/Virtual-Audio-Driver](https://github.com/VirtualDrivers/Virtual-Audio-Driver) (MIT).
@@ -80,7 +92,8 @@ Read-only inspection of two sources, per plan:
   `DriftSlipPolicy` (20 ms fill target, ≤1-frame slip per 10 s, 1 s in
   emergency) — drop skips a frame, repeat re-sends the previous one.
 - CI: `.github/workflows/driver.yml` (WDK via choco, x64 test-sign,
-  ARM64 validation-off per build.bat). Not yet run — no GitHub remote.
+  ARM64 validation-off per build.bat). Remote snapshot 2026-11-26: the workflow
+  exists but has zero runs; the pinned fork commit matches remote `main`.
 - Install: `tools/scripts/install-driver.ps1` (self-signed cert, trust,
   signtool, pnputil + devcon). **User must enable testsigning + reboot
   first**; devcon.exe must sit next to the script or be on PATH (WDK tool).

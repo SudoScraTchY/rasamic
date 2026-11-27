@@ -36,6 +36,13 @@ jobs:
         run: dotnet run --project tools/RasaMic.LatencyProbe -c Release -- 30 50
       - name: Module benchmarks
         run: dotnet run --project tools/RasaMic.Benchmarks -c Release -- --job short --filter '*' --exporters json --artifacts perf-results
+      - name: Publish benchmark summary
+        shell: bash
+        run: |
+          for report in perf-results/*-report-github.md; do
+            printf '\n## %s\n\n' "$(basename "$report")" >> "$GITHUB_STEP_SUMMARY"
+            cat "$report" >> "$GITHUB_STEP_SUMMARY"
+          done
       - name: Perf regression gate (>10% vs this runner's baseline fails)
         run: powershell -NoProfile -ExecutionPolicy Bypass -File tools/perf-gate.ps1 -ResultsDir perf-results
       - uses: actions/upload-artifact@v4

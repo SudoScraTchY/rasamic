@@ -64,6 +64,7 @@ jobs:
         run: |
           dotnet test tests/RasaMic.Audio.Tests -c Release
           dotnet test tests/RasaMic.IntegrationTests -c Release
+          dotnet test tests/RasaMic.Server.App.Tests -c Release
       - uses: actions/upload-artifact@v4
         with:
           name: rasamic-native-win-x64

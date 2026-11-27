@@ -3,11 +3,16 @@ name: driver
 on:
   push:
     paths:
+      - 'drivers/windows'
       - 'drivers/windows/**'
+      - '.gitmodules'
       - '.github/workflows/driver.yml'
   pull_request:
     paths:
+      - 'drivers/windows'
       - 'drivers/windows/**'
+      - '.gitmodules'
+      - '.github/workflows/driver.yml'
   workflow_dispatch:
 
 jobs:

@@ -94,8 +94,8 @@ Same direction and token values as the client, implemented for Avalonia:
   Fluent JSON (same rule as the client: never hand-guessed).
 - Tally lamp: `MainWindowViewModel.TallyBrush` — amber with a live session, clay while
   listening, muted when stopped; refreshed by the 1 Hz timer and on theme change.
-- Descriptive content added: numbered pairing steps (same Wi-Fi → scan pins the key →
-  talk), QR on a white tile for scan contrast, copy-payload button, manual-IP fallback
+- Descriptive content added: numbered pairing steps (same Wi-Fi → paste payload pins
+  the key → talk), QR on a white tile, copy-payload button, manual-IP fallback
   hint, per-card hints, `Output: <backend>` line, tray behavior footer.
 - Server card shows the PC's LAN IPv4 (virtual adapters filtered out, Copy button) and
   an Output selector (Monitor / Rasa Mic driver / PipeWire / HAL per OS) — the GUI could

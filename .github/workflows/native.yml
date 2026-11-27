@@ -66,3 +66,56 @@ jobs:
           path: |
             build-${{ matrix.name }}/librasamic_native.*
             build-${{ matrix.name }}/rasamic_native.dll
+
+  android-app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '11.0.x'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: MAUI workload
+        run: dotnet workload install maui
+      - name: Android SDK packages
+        shell: bash
+        run: |
+          sdk="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          yes | "$sdk/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;37.0.0"
+      - name: Fetch rnnoise model weights
+        shell: bash
+        run: |
+          cd native/third_party/rnnoise
+          hash=$(cat model_version)
+          curl -fL --retry 3 -o "rnnoise_data-$hash.tar.gz" "https://media.xiph.org/rnnoise/models/rnnoise_data-$hash.tar.gz"
+          echo "$hash  rnnoise_data-$hash.tar.gz" | sha256sum -c -
+          tar xzf "rnnoise_data-$hash.tar.gz"
+      - name: Build Android native libraries
+        shell: bash
+        run: |
+          ndk="${ANDROID_NDK_HOME:-$ANDROID_NDK_LATEST_HOME}"
+          test -d "$ndk"
+          for abi in arm64-v8a x86_64; do
+            cmake -S native/rasamic-native -B "native/rasamic-native/build-android-$abi" -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_TOOLCHAIN_FILE="$ndk/build/cmake/android.toolchain.cmake" \
+              -DANDROID_ABI="$abi" -DANDROID_PLATFORM=android-26
+            cmake --build "native/rasamic-native/build-android-$abi"
+          done
+      - name: Build Android app
+        shell: bash
+        run: |
+          export ANDROID_HOME="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          dotnet build src/RasaMic.Client/RasaMic.Client.csproj -f net11.0-android -c Release \
+            -p:AndroidSdkDirectory="$ANDROID_HOME"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rasamic-android-apk
+          path: src/RasaMic.Client/bin/Release/net11.0-android/*.apk

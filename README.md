@@ -4,38 +4,41 @@
 phone into a low-latency wireless microphone for Windows, macOS, and Linux
 (x64 and arm64). A free, open-source (MIT) alternative to WO Mic.
 
-- Encrypted Wi-Fi audio (Opus, AES-256-GCM, ECDH P-256 pairing), QR pairing
+- Encrypted Wi-Fi audio by default (Opus, AES-256-GCM, ECDH P-256 pairing), with server-controlled plain mode for trusted LANs
 - Noise suppression (RNNoise), auto gain control (SpeexDSP), volume & quality controls
-- Virtual microphone on every desktop OS — no closed-source drivers
+- Virtual microphone on every desktop OS — PipeWire/HAL or an optional signed Windows audio cable
 - Smart auto-reconnect (remembered servers, mDNS/beacon/subnet ladder), global hotkeys, auto-start (`rasamicd --autostart enable`)
 - iOS **and** Android clients; USB, Bluetooth (Android), Wi-Fi transports
 
-> Status: early development (M1/M2/M4/M5). Protocol + crypto complete and tested
-> (129/129 on Windows and Linux); native pipeline builds for Windows x64, Linux x64
-> and Android arm64/x86_64; driverless monitor demo works end-to-end. Discovery
-> (mDNS + beacon), smart auto-reconnect (remembered servers, Ping/Pong watchdog,
-> reconnect ladder), 1 Hz link stats (RTT, loss, jitter, buffer), an Avalonia
-> server GUI (tray, QR pairing, mute/gain, live stats, customizable global mute
-> hotkey) and an Android foreground service (background streaming) are
-> implemented and tested. Android USB streaming (adb-reverse, TCP audio
-> transport) and iOS USB streaming (`rasamicd --usbmux`, usbmuxd tunnel) are
-> implemented and covered by integration tests. Bluetooth streaming
-> (Android → PC, RFCOMM "Rasa Mic" via 32feet, `rasamicd --bluetooth`) and an
-> opt-in AudioRecord capture backend with mic-direction selection
-> (Android 10+) are implemented; the PC listener starts on Windows, phone
-> audio pending paired hardware. Wi-Fi Direct group creation (Android) is
-> implemented; streaming pending two devices. The Velopack Windows GUI
-> installer passed a silent install/uninstall round-trip. Stereo streaming
-> (Android AAudio + desktop) is implemented and tested end-to-end; mono-only
-> sinks (Windows driver, macOS HAL) get a server-side downmix. The iOS client
-> compiles (AVAudioEngine capture in Measurement mode, polar-pattern picker,
-> background audio, local-network permissions); its native lib builds in CI
-> (`native.yml`, ios-arm64) — device signing/TestFlight needs an Apple
-> Developer account. Linux virtual mic ("Rasa Mic" PipeWire source)
-> verified end-to-end headless. The macOS HAL ring writer compensates clock
-> drift (fill-level monitoring, ≤1-sample slip per 10 s, tested).
-> Windows driver v1 feed (IOCTL) implemented, awaiting CI build + test-signed install.
-> See [docs/windows-driver-feed.md](docs/windows-driver-feed.md).
+> Status: early development, snapshot 2026-11-27. The full Release suite passes
+> **184/184** on Windows. Protocol/crypto, discovery, reconnect, Android
+> foreground stereo capture, USB transports, the Avalonia GUI, and Linux PipeWire
+> are implemented and tested. Android native arm64/x86_64 and the Android Release
+> client build successfully; the client build needs an explicit Android SDK path
+> on the current machine.
+>
+> Windows can use an externally installed signed audio cable (`rasamicd --cable`)
+> without test-signing. The project's own Windows driver v1 feed is implemented in
+> the [driver fork](https://github.com/SudoScraTchY/rasamic-windows-driver), but its
+> CI workflow has not run and installation remains signing/Secure Boot gated. The
+> macOS HAL compile failure is patched and awaits a CI rerun. iOS device signing and
+> TestFlight need an Apple account/macOS; the `macos-14` native/iOS jobs were
+> cancelled. Bluetooth phone audio and Wi-Fi Direct streaming still need hardware
+> verification. See [HANDOFF.md](HANDOFF.md) for the evidence and next actions.
+
+## Documentation
+
+- [User guide](docs/USER_GUIDE.md) — GUI/CLI quick start, pairing, backends, and troubleshooting
+- [HANDOFF.md](HANDOFF.md) — current state, evidence, blockers, and next agenda
+- [Architecture](docs/ARCHITECTURE.md) — components, data flow, contracts, invariants
+- [Development](docs/DEVELOPMENT.md) — prerequisites, native/managed builds, conventions
+- [Testing](docs/TESTING.md) — test matrix, commands, mobile and SIMD verification
+- [Operations](docs/OPERATIONS.md) — backends, transports, telemetry, troubleshooting
+- [Release](docs/RELEASE.md) — gates, packaging, signing, rollout, rollback
+- [Performance](docs/perf.md) — benchmarks, latency, Runtime Async/ValueTask/AVX2
+- [Design](docs/design.md) — client and Windows GUI design language
+- [Multi-client evaluation](docs/multi-client-eval.md) — v1 single-session decision
+- [Windows driver feed](docs/windows-driver-feed.md) — driver recon and IOCTL contract
 
 ## Layout
 
@@ -56,13 +59,9 @@ cd native/third_party/rnnoise && sh download_model.sh && cd ../../..
 # 2. native library (Windows x64; Android: tools/scripts/build-native-android.bat)
 tools/scripts/build-native-win.sh
 
-# 3. managed code + tests
-dotnet build RasaMic.slnx
-dotnet test tests/RasaMic.Protocol.Tests
-dotnet test tests/RasaMic.Core.Tests
-dotnet test tests/RasaMic.Audio.Tests        # needs the native dll
-dotnet test tests/RasaMic.IntegrationTests   # localhost UDP/TCP loopback, needs native dll
-dotnet test tests/RasaMic.Server.App.Tests   # headless Avalonia GUI tests, no native needed
+# 3. managed code + full test suite
+dotnet build RasaMic.slnx -c Release
+dotnet test RasaMic.slnx -c Release   # 184/184 on the current Windows tree
 
 # MAUI Android client (needs Android SDK/NDK-built .so first)
 tools/scripts/build-client-android.bat
@@ -71,19 +70,25 @@ tools/scripts/build-client-android.bat
 Android build notes:
 
 - JDK 17+ required (`JAVA_HOME`); the script pins it if the Microsoft JDK is present.
-- Needs `platforms;android-37.0` in the Android SDK. If `dl.google.com` is
-  unreachable, the platform zip is mirrored at
+- Set `ANDROID_HOME` and `ANDROID_SDK_ROOT` to the SDK that contains build-tools,
+  CMake, NDK, and `platforms;android-37.0`. The default
+  `%LOCALAPPDATA%\Android\Sdk` on the current machine is incomplete; the working
+  SDK is `M:\Android\Sdks`.
+- If `dl.google.com` is unreachable, the platform zip is mirrored at
   `https://mirrors.cloud.tencent.com/AndroidSDK/platform-37.0_r02.zip` —
   extract it into `<sdk>/platforms/android-37.0`.
 - Phone smoke test: `tools/scripts/adb-smoke.ps1` (USB debugging is a user action).
+- Full setup and verified commands: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) and
+  [docs/TESTING.md](docs/TESTING.md).
 
 ## Phone → PC demo (M1)
 
 1. PC: `dotnet run --project src/RasaMic.Server.Cli -- --monitor`
    (advertises via mDNS `_rasamic._udp` + UDP beacon :47301; `--no-discovery` to disable)
-   — or the GUI: `dotnet run --project src/RasaMic.Server.App` (QR pairing on screen,
+   — or the GUI: `dotnet run --project src/RasaMic.Server.App` (pairing payload on screen,
    tray icon, mute/gain controls, live link stats, global mute hotkey
-   **Ctrl+Alt+M** — click Change to rebind).
+   **Ctrl+Alt+M** — click Change to rebind). Turn **Hear phone on this PC** off to
+   keep speaker monitoring silent; encryption and hearing apply on the next start.
 2. Phone: install the APK (`src/RasaMic.Client/bin/Debug/net11.0-android/`),
    enter the PC's IP or paste the pairing payload, tap Connect. Leaving the IP
    field empty auto-finds the last remembered server; if the connection drops,
@@ -98,9 +103,9 @@ few ms of latency vs the default AAudio/Oboe LowLatency path, which cannot
 select a mic direction — AAudio stays the default.
 
 Stereo (Android): turn on **Stereo capture (AAudio)** in the Audio card.
-L/R is negotiated in the Hello handshake and rides the same encrypted path;
+L/R is negotiated in the Hello handshake and rides the same selected audio path;
 the server downmixes for mono-only sinks (Windows driver, macOS HAL) while
-monitor playback and PipeWire stay stereo. Mutually exclusive with the
+monitor playback, external cables, and PipeWire stay stereo. Mutually exclusive with the
 AudioRecord backend; iOS stays mono (device mic). Desktop check:
 Headless phone connect for adb smoke (grant `RECORD_AUDIO` via `pm grant`
 first; unlock the device once — MAUI does not surface the page behind the
@@ -109,6 +114,26 @@ keyguard, and sessions connected before screen-off keep streaming locked):
 
 `rasamic-loopback --server <ip> --stereo --tone --no-ns` streams L 440 Hz /
 R 880 Hz.
+
+## Latency and trusted-LAN plain mode
+
+The phone sender and PC playout are paced to the 10 ms Opus frame. The monitor
+queue is capped at 50 ms, large network gaps resynchronize without a burst of PLC
+frames, and reconnect discards stale queued phone packets. Live stats show
+`dwell`, `wr`, `out`, and `dev` so capture, server, and output-device delay can be
+separated.
+
+Encryption stays on by default. On a trusted LAN, the PC can disable audio
+encryption for the next session:
+
+```sh
+rasamicd --monitor --plain
+```
+
+The Windows GUI exposes the same choice as **Encrypt audio**. Plain mode removes
+AES-GCM authentication as well as confidentiality: anyone able to reach UDP 47300
+can inject audio. Pairing still identifies the server, and control JSON was
+already plaintext.
 
 ## Driverless demo (no virtual mic yet)
 
@@ -123,7 +148,7 @@ dotnet run --project tools/RasaMic.LoopbackClient -- --payload <base64url-text>
 ```
 
 The client shows a 6-digit pairing code — verify it matches the server side (TOFU).
-With a QR/pasted payload the server key is pinned and MITM is rejected outright.
+With a pasted pairing payload the server key is pinned and MITM is rejected outright.
 
 ## USB (Android, adb reverse)
 
@@ -141,7 +166,7 @@ is remembered per server and survives reconnects.
 usbmuxd runs on the PC, so the PC dials the phone:
 
 ```sh
-rasamicd --usbmux          # add --monitor / --driver / --pipewire as usual
+rasamicd --usbmux          # add --monitor / --cable / --driver / --pipewire as usual
 ```
 
 Requires Apple Devices or iTunes on Windows (Apple Mobile Device Service),
@@ -157,11 +182,11 @@ verification pending an iPhone.
 Pair the phone with the PC in Android Bluetooth settings first, then:
 
 ```sh
-rasamicd --bluetooth       # add --monitor / --driver / --pipewire as usual
+rasamicd --bluetooth       # add --monitor / --cable / --driver / --pipewire as usual
 ```
 
 In the Android app, turn on **Bluetooth**, pick the paired PC, tap Connect.
-Audio rides the same framed, encrypted tunnel path as USB (RFCOMM, service
+Audio rides the same framed tunnel path as USB (RFCOMM, service
 "Rasa Mic"). The PC listener uses 32feet (MIT): Windows and Linux (BlueZ);
 macOS has no RFCOMM listener support. iOS Bluetooth would require MFi
 licensing — not implemented. Reconnects re-dial the socket automatically.
@@ -173,10 +198,30 @@ device.
 No router needed: in the Android app tap **Create Wi-Fi Direct group** (the
 phone becomes the group owner at `192.168.49.1`), join the group from the PC's
 Wi-Fi Direct settings, then connect to the PC's Wi-Fi Direct IP as usual —
-audio rides the normal encrypted UDP/TCP path. Android 13+ asks for the
+audio rides the normal UDP/TCP path with the server-selected encryption mode.
+Android 13+ asks for the
 nearby-devices permission; older versions need location permission (OS
 requirement for Wi-Fi P2P). Group creation is compile-verified; end-to-end
 streaming pending two Wi-Fi Direct devices.
+
+## Windows virtual mic with an external audio cable
+
+Install [VB-CABLE](https://vb-audio.com/Cable/) once, then run:
+
+```sh
+rasamicd doctor
+rasamicd --list-outputs
+rasamicd --cable
+```
+
+Rasa writes phone audio to the **CABLE Input** playback endpoint. In Discord,
+OBS, or another target app, select **CABLE Output** as the microphone. The
+Windows GUI exposes the same mode as **VB-CABLE (external)** and can refresh or
+persist the selected playback endpoint.
+
+This uses VB-Audio's signed driver; Rasa does not compile, extract, repackage,
+install, or remove it. No test-signing or Secure Boot change is required. The
+official installer remains a user action and may require UAC or a reboot.
 
 ## Linux virtual mic (M5)
 
@@ -215,7 +260,8 @@ dotnet run --project tools/RasaMic.LatencyProbe            # 20 bursts, ~12 s
 dotnet run --project tools/RasaMic.LatencyProbe -- 1200    # 10-min soak
 ```
 
-Measured on Windows x64 localhost: **median 15.5 ms, p95 31.8 ms** (gate 80 ms).
+Measured on Windows x64 localhost: **median 15.5 ms, p95 31.8 ms** (CI gate:
+p95 < 50 ms). The 80 ms figure used by earlier notes is retired.
 10-minute soak (1200 bursts): 1200/1200 detected, p95 16.2 ms, no managed-heap
 growth. Sender hot path allocates 0 bytes over a 60 s bench
 (`RASA_ALLOC_BENCH_SECONDS=60 dotnet test tests/RasaMic.IntegrationTests`).
@@ -246,6 +292,9 @@ future multi-client mix is evaluated in
 [docs/multi-client-eval.md](docs/multi-client-eval.md).
 
 ## Release packaging
+
+There are no published releases yet. The full gate, signing, rollout, and rollback
+checklist is in [docs/RELEASE.md](docs/RELEASE.md).
 
 ```sh
 # zip with self-contained rasamicd + native pipeline + licenses (per RID)

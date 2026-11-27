@@ -32,6 +32,9 @@ constexpr Float64 kSampleRate = 48000.0;
 constexpr UInt32 kChannels = 1;
 constexpr UInt32 kBufferFrameSize = 512;
 constexpr UInt32 kZeroTimeStampPeriod = kBufferFrameSize;
+// Current plug-in SDKs do not expose these legacy device selectors.
+constexpr AudioObjectPropertySelector kRasaBufferFrameSize = 'fsiz';
+constexpr AudioObjectPropertySelector kRasaStreamConfiguration = 'slay';
 
 constexpr const char* kRingPath = "/Library/Application Support/RasaMic/ring.bin";
 
@@ -189,8 +192,12 @@ HRESULT STDMETHODCALLTYPE QueryInterface(void* self, REFIID uuid, LPVOID* outInt
     if (outInterface == nullptr)
         return E_POINTER;
     *outInterface = nullptr;
-    CFUUIDRef unknown = CFUUIDGetConstantUUIDWithBytes(nullptr, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46);
-    if (CFEqual(uuid, unknown) || CFEqual(uuid, kAudioServerPlugInDriverInterfaceUUID))
+    const CFUUIDBytes driver = CFUUIDGetUUIDBytes(kAudioServerPlugInDriverInterfaceUUID);
+    const CFUUIDBytes unknown = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46
+    };
+    if (memcmp(&uuid, &driver, sizeof(uuid)) == 0 || memcmp(&uuid, &unknown, sizeof(uuid)) == 0)
     {
         *outInterface = self;
         static_cast<RasaDriver*>(self)->refCount.fetch_add(1);
@@ -254,7 +261,7 @@ bool HasDeviceProperty(AudioObjectID object, const AudioObjectPropertyAddress& a
     switch (a.mSelector)
     {
         case kAudioObjectPropertyBaseClass:
-        case kAudioObjectPropertyClassID:
+        case kAudioObjectPropertyClass:
         case kAudioObjectPropertyOwner:
         case kAudioObjectPropertyName:
         case kAudioObjectPropertyManufacturer:
@@ -263,7 +270,7 @@ bool HasDeviceProperty(AudioObjectID object, const AudioObjectPropertyAddress& a
         case kAudioDevicePropertyTransportType:
         case kAudioDevicePropertyDeviceIsAlive:
         case kAudioDevicePropertyNominalSampleRate:
-        case kAudioDevicePropertyBufferFrameSize:
+        case kRasaBufferFrameSize:
         case kAudioDevicePropertyZeroTimeStampPeriod:
         case kAudioDevicePropertyClockAlgorithm:
         case kAudioDevicePropertyClockIsStable:
@@ -271,7 +278,7 @@ bool HasDeviceProperty(AudioObjectID object, const AudioObjectPropertyAddress& a
         case kAudioDevicePropertyDeviceCanBeDefaultDevice:
             return a.mScope == kAudioObjectPropertyScopeGlobal || a.mScope == kAudioObjectPropertyScopeInput;
         case kAudioDevicePropertyStreams:
-        case kAudioDevicePropertyStreamConfiguration:
+        case kRasaStreamConfiguration:
             return true;
         case kAudioDevicePropertyLatency:
         case kAudioDevicePropertySafetyOffset:
@@ -286,7 +293,7 @@ bool HasStreamProperty(const AudioObjectPropertyAddress& a)
     switch (a.mSelector)
     {
         case kAudioObjectPropertyBaseClass:
-        case kAudioObjectPropertyClassID:
+        case kAudioObjectPropertyClass:
         case kAudioObjectPropertyOwner:
         case kAudioStreamPropertyIsActive:
         case kAudioStreamPropertyDirection:
@@ -311,7 +318,7 @@ Boolean STDMETHODCALLTYPE HasProperty(AudioServerPlugInDriverRef, AudioObjectID 
             switch (address->mSelector)
             {
                 case kAudioObjectPropertyBaseClass:
-                case kAudioObjectPropertyClassID:
+                case kAudioObjectPropertyClass:
                 case kAudioObjectPropertyOwner:
                 case kAudioObjectPropertyCustomPropertyInfoList:
                 case kAudioPlugInPropertyDeviceList:
@@ -352,12 +359,12 @@ OSStatus STDMETHODCALLTYPE GetPropertyDataSize(AudioServerPlugInDriverRef ref, A
     switch (address->mSelector)
     {
         case kAudioObjectPropertyBaseClass:
-        case kAudioObjectPropertyClassID:
+        case kAudioObjectPropertyClass:
         case kAudioObjectPropertyOwner:
         case kAudioDevicePropertyTransportType:
         case kAudioDevicePropertyDeviceIsAlive:
         case kAudioDevicePropertyDeviceCanBeDefaultDevice:
-        case kAudioDevicePropertyBufferFrameSize:
+        case kRasaBufferFrameSize:
         case kAudioDevicePropertyZeroTimeStampPeriod:
         case kAudioDevicePropertyClockAlgorithm:
         case kAudioDevicePropertyClockIsStable:
@@ -367,7 +374,6 @@ OSStatus STDMETHODCALLTYPE GetPropertyDataSize(AudioServerPlugInDriverRef ref, A
         case kAudioStreamPropertyDirection:
         case kAudioStreamPropertyTerminalType:
         case kAudioStreamPropertyStartingChannel:
-        case kAudioStreamPropertyLatency:
             *outSize = sizeof(UInt32);
             return noErr;
         case kAudioObjectPropertyName:
@@ -388,7 +394,7 @@ OSStatus STDMETHODCALLTYPE GetPropertyDataSize(AudioServerPlugInDriverRef ref, A
         case kAudioDevicePropertyStreams:
             *outSize = address->mScope == kAudioObjectPropertyScopeInput ? sizeof(AudioObjectID) : 0;
             return noErr;
-        case kAudioDevicePropertyStreamConfiguration:
+        case kRasaStreamConfiguration:
             *outSize = StreamConfigurationSize(object, *address);
             return noErr;
         case kAudioStreamPropertyPhysicalFormat:
@@ -418,7 +424,7 @@ OSStatus CopyUInt32(UInt32 value, UInt32* ioSize, void* outData)
     return noErr;
 }
 
-OSStatus STDMETHODCALLTYPE GetPropertyData(AudioServerPlugInDriverRef ref, AudioObjectID object, pid_t pid, const AudioObjectPropertyAddress* address, UInt32 qualifierSize, const void* qualifier, UInt32* ioSize, void* outData)
+OSStatus STDMETHODCALLTYPE GetPropertyData(AudioServerPlugInDriverRef ref, AudioObjectID object, pid_t pid, const AudioObjectPropertyAddress* address, UInt32 qualifierSize, const void* qualifier, UInt32, UInt32* ioSize, void* outData)
 {
     if (address == nullptr)
         return kAudioHardwareBadPropertySizeError;
@@ -429,7 +435,7 @@ OSStatus STDMETHODCALLTYPE GetPropertyData(AudioServerPlugInDriverRef ref, Audio
     {
         case kAudioObjectPropertyBaseClass:
             return CopyUInt32(kAudioObjectClassID, ioSize, outData);
-        case kAudioObjectPropertyClassID:
+        case kAudioObjectPropertyClass:
             return CopyUInt32(object == kPluginObjectID ? kAudioPlugInClassID
                               : object == kDeviceObjectID ? kAudioDeviceClassID
                                                           : kAudioStreamClassID,
@@ -461,7 +467,7 @@ OSStatus STDMETHODCALLTYPE GetPropertyData(AudioServerPlugInDriverRef ref, Audio
             *ioSize = sizeof(Float64);
             return noErr;
         }
-        case kAudioDevicePropertyBufferFrameSize:
+        case kRasaBufferFrameSize:
             return CopyUInt32(kBufferFrameSize, ioSize, outData);
         case kAudioDevicePropertyZeroTimeStampPeriod:
             return CopyUInt32(kZeroTimeStampPeriod, ioSize, outData);
@@ -470,7 +476,6 @@ OSStatus STDMETHODCALLTYPE GetPropertyData(AudioServerPlugInDriverRef ref, Audio
         case kAudioDevicePropertyLatency:
         case kAudioDevicePropertySafetyOffset:
         case kAudioStreamPropertyStartingChannel:
-        case kAudioStreamPropertyLatency:
             return CopyUInt32(0, ioSize, outData);
         case kAudioStreamPropertyIsActive:
             return CopyUInt32(d->ioClients.load() > 0 ? 1 : 0, ioSize, outData);
@@ -494,7 +499,7 @@ OSStatus STDMETHODCALLTYPE GetPropertyData(AudioServerPlugInDriverRef ref, Audio
             }
             return CopyUInt32(kInputStreamObjectID, ioSize, outData);
         }
-        case kAudioDevicePropertyStreamConfiguration:
+        case kRasaStreamConfiguration:
         {
             UInt32 need = StreamConfigurationSize(object, *address);
             if (ioSize == nullptr || outData == nullptr || *ioSize < need)
