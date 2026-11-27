@@ -141,7 +141,7 @@ On macOS, after building the native library:
 
 ```sh
 dotnet workload install maui
-dotnet build src/RasaMic.Client -f net11.0-ios -c Release
+dotnet build src/RasaMic.Client -f net11.0-ios -r ios-arm64 -c Release -p:EnableCodeSigning=false -p:NoDSymUtil=true
 ```
 
 This is an unsigned compile. Signing, provisioning, device install, and TestFlight

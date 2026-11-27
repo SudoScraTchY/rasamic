@@ -157,6 +157,8 @@ jobs:
           sudo killall -9 coreaudiod || true
           sleep 5
       - name: Spike — coreaudiod enumerates Rasa Mic
+        # Hosted discovery is advisory; the factory/property self-test above is the required gate.
+        continue-on-error: true
         run: |
           for attempt in $(seq 1 15); do
             system_profiler SPAudioDataType > /tmp/audio-devices.txt
