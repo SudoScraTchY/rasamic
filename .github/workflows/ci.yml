@@ -141,22 +141,26 @@ jobs:
           cmake --build drivers/macos/RasaMicHalPlugin/build
       - name: Install plugin + restart coreaudiod
         run: |
+          bundle=drivers/macos/RasaMicHalPlugin/build/RasaMicHalPlugin.driver
+          plutil -lint "$bundle/Contents/Info.plist"
+          codesign --verify --deep --strict --verbose=2 "$bundle"
           sudo mkdir -p "/Library/Application Support/RasaMic"
           sudo chmod 777 "/Library/Application Support/RasaMic"
-          sudo cp -R drivers/macos/RasaMicHalPlugin/build/RasaMicHalPlugin.driver /Library/Audio/Plug-Ins/HAL/
+          sudo cp -R "$bundle" /Library/Audio/Plug-Ins/HAL/
           sudo killall coreaudiod || true
           sleep 5
       - name: Spike — coreaudiod enumerates Rasa Mic
         run: |
           for attempt in $(seq 1 15); do
-            system_profiler SPAudioDataType | tee /tmp/audio-devices.txt
+            system_profiler SPAudioDataType > /tmp/audio-devices.txt
             if grep -qi "Rasa" /tmp/audio-devices.txt; then
               exit 0
             fi
             sleep 1
           done
+          cat /tmp/audio-devices.txt
           log show --last 2m --predicate 'process == "coreaudiod" OR sender == "RasaMicHalPlugin"' > /tmp/coreaudio.log || true
-          cat /tmp/coreaudio.log
+          grep -Ei 'Rasa|AudioServerPlugIn|code sign|library validation|CoreAudio' /tmp/coreaudio.log || true
           exit 1
       # Sandbox probe: coreaudiod may deny ring access outside its bundle.
       # If this step fails while enumeration passed, the Mach fallback is next.
@@ -177,6 +181,7 @@ jobs:
           ffmpeg -hide_banner -i /tmp/rasa-hal.wav -af volumedetect -f null - 2>&1 | tee /tmp/vol.txt
           awk '/mean_volume/ { found=1; ok = ($5 > -60) ? 0 : 1 } END { exit found ? ok : 1 }' /tmp/vol.txt
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: rasamic-hal-plugin-macos
           path: drivers/macos/RasaMicHalPlugin/build/RasaMicHalPlugin.driver

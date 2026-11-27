@@ -107,6 +107,10 @@ double max = latencies[^1];
 Console.WriteLine($"Detected {latencies.Count}/{bursts} bursts.");
 Console.WriteLine($"Feed->backend latency: median {median:F1} ms, p95 {p95:F1} ms, max {max:F1} ms");
 Console.WriteLine($"(jitter target 10-40 ms + 10 ms frame + codec/network; capture + playback add platform latency)");
+if (server.LastSessionStats is { } stats)
+{
+    Console.WriteLine($"Server stats: loss {stats.LossPct:F2}%, jitter {stats.JitterMs:F1} ms, buffer {stats.BufferMs:F0} ms, dwell p95 {stats.DwellP95Ms:F1} ms, write p95 {stats.WriteP95Ms:F1} ms");
+}
 if (wavPath is not null && backend.Pcm.Count > 0)
 {
     float[] wav = backend.Pcm.ToArray();

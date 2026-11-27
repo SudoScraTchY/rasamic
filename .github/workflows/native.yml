@@ -21,7 +21,7 @@ jobs:
           - os: macos-26
             name: osx-arm64
             cmake-args: ''
-          - os: macos-26
+          - os: xcode-27
             name: ios-arm64
             cmake-args: >-
               -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_ARCHITECTURES=arm64
