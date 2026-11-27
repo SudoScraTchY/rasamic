@@ -35,7 +35,7 @@ public sealed class JitterBuffer
     private long _lastPushTick;
     private long _stableSinceTick;
 
-    public JitterBuffer(int targetPackets = 2, int minPackets = 1, int maxPackets = 4)
+    public JitterBuffer(int targetPackets = 1, int minPackets = 1, int maxPackets = 4)
     {
         _target = Math.Clamp(targetPackets, minPackets, maxPackets);
         MinPackets = minPackets;

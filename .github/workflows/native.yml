@@ -87,6 +87,7 @@ jobs:
         shell: bash
         run: |
           sdk="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          set +o pipefail
           yes | "$sdk/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;37.0.0"
       - name: Fetch rnnoise model weights
         shell: bash

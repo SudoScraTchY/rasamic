@@ -106,7 +106,7 @@ double p95 = latencies[Math.Min(latencies.Count - 1, (int)(latencies.Count * 0.9
 double max = latencies[^1];
 Console.WriteLine($"Detected {latencies.Count}/{bursts} bursts.");
 Console.WriteLine($"Feed->backend latency: median {median:F1} ms, p95 {p95:F1} ms, max {max:F1} ms");
-Console.WriteLine($"(jitter target 20 ms + 10 ms frame + codec/network; capture + playback add platform latency)");
+Console.WriteLine($"(jitter target 10-40 ms + 10 ms frame + codec/network; capture + playback add platform latency)");
 if (wavPath is not null && backend.Pcm.Count > 0)
 {
     float[] wav = backend.Pcm.ToArray();

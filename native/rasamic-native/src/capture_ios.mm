@@ -39,7 +39,7 @@ void ConvertAndFeed(Capture* c, AVAudioPCMBuffer* buffer) {
 }
 
 void InstallTap(Capture* c) {
-    AVAudioInputNode* input = c.engine.inputNode;
+    AVAudioInputNode* input = c->engine.inputNode;
     /* Requesting 48 kHz mono float makes the engine resample/remap from the
      * hardware format inside the tap — the DSP chain stays hard-locked to 48k. */
     AVAudioFormat* tapFormat = [[AVAudioFormat alloc] initWithCommonFormat:AVAudioPCMFormatFloat32
@@ -148,10 +148,21 @@ int32_t rm_capture_set_polar(void* h, int32_t pattern) {
     if (inputs.count == 0)
         return -1;
     AVAudioSessionPortDescription* port = inputs[0];
-    if (![port.availablePolarPatterns containsObject:@(pattern)])
+    AVAudioSessionDataSourceDescription* source = port.selectedDataSource;
+    if (!source)
+        return -1;
+    AVAudioSessionPolarPattern polar = nil;
+    switch (pattern) {
+        case 0: polar = AVAudioSessionPolarPatternOmnidirectional; break;
+        case 1: polar = AVAudioSessionPolarPatternSubcardioid; break;
+        case 2: polar = AVAudioSessionPolarPatternCardioid; break;
+        case 3: polar = AVAudioSessionPolarPatternHypercardioid; break;
+        default: return -1;
+    }
+    if (![source.supportedPolarPatterns containsObject:polar])
         return -1;
     NSError* err = nil;
-    if (![port setPreferredPolarPattern:static_cast<AVAudioSessionPolarPattern>(pattern) error:&err])
+    if (![source setPreferredPolarPattern:polar error:&err])
         return -1;
     return [session setPreferredInput:port error:&err] ? 0 : -1;
 }
