@@ -117,8 +117,10 @@ jobs:
           TONE_PID=$!
           sleep 5
           pw-cli ls Node | grep -q rasamic-mic
-          timeout 6 pw-record --target rasamic-mic /tmp/rasa-capture.wav &
+          timeout 15 pw-record --target rasamic-mic /tmp/rasa-capture.wav &
           RECORD_PID=$!
+          for i in $(seq 1 10); do [ "$(pw-cli ls Link | grep -c 'PipeWire:Interface:Link')" -ge 1 ] && break; sleep 1; done
+          pw-cli ls Link
           wait $TONE_PID
           wait $RECORD_PID || true
           kill $SERVER_PID || true
@@ -140,6 +142,10 @@ jobs:
         run: |
           cmake -S drivers/macos/RasaMicHalPlugin -B drivers/macos/RasaMicHalPlugin/build -DCMAKE_BUILD_TYPE=Release
           cmake --build drivers/macos/RasaMicHalPlugin/build
+      - name: HAL factory self-test
+        run: |
+          drivers/macos/RasaMicHalPlugin/build/RasaMicHalPluginSelfTest \
+            drivers/macos/RasaMicHalPlugin/build/RasaMicHalPlugin.driver/Contents/MacOS/RasaMicHalPlugin
       - name: Install plugin + restart coreaudiod
         run: |
           bundle=drivers/macos/RasaMicHalPlugin/build/RasaMicHalPlugin.driver
@@ -147,10 +153,8 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$bundle"
           sudo mkdir -p "/Library/Application Support/RasaMic"
           sudo chmod 777 "/Library/Application Support/RasaMic"
-          install_dir="$HOME/Library/Audio/Plug-Ins/HAL"
-          mkdir -p "$install_dir"
-          cp -R "$bundle" "$install_dir/"
-          sudo launchctl kickstart -k system/com.apple.audio.coreaudiod 2>/dev/null || sudo killall coreaudiod || true
+          sudo cp -R "$bundle" /Library/Audio/Plug-Ins/HAL/
+          sudo killall -9 coreaudiod || true
           sleep 5
       - name: Spike — coreaudiod enumerates Rasa Mic
         run: |

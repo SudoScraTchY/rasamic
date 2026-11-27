@@ -44,19 +44,16 @@ jobs:
           $msbuild = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
             -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
           $args = @('VirtualAudioDriver.sln', '/p:Configuration=Release', "/p:Platform=${{ matrix.platform }}")
-          # The hosted WDK omits the x86 InfVerif task DLL; release validation runs separately.
-          $args += @('/p:SkipPackageVerification=true')
+          # The hosted WDK omits the x86 InfVerif task DLL; signing and release validation run separately.
+          $args += @('/p:SkipPackageVerification=true', '/p:SignMode=Off')
           if ('${{ matrix.platform }}' -eq 'ARM64') {
             # Mirror build.bat: ARM64 skips InfVerif/ApiValidator/signing.
             $args += @(
               '/p:RunCodeAnalysis=false', '/p:DriverTargetPlatform=Universal',
               '/p:UseInfVerifierEx=false', '/p:ValidateDrivers=false', '/p:StampInf=false',
               '/p:ApiValidator_Enable=false', '/p:InfVerif_Enable=false',
-              '/p:DisableVerification=true', '/p:SignMode=Off',
+              '/p:DisableVerification=true',
               '/p:ApiValidator_ExcludedTargets=ARM64', '/p:EnableInf2cat=false')
-          } else {
-            # Test-sign in CI so the package is installable on testsigning machines.
-            $args += @('/p:SignMode=TestSign', '/p:TestCertificate=CN=RasaMic Test')
           }
           & $msbuild @args
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

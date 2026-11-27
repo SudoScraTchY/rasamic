@@ -22,3 +22,8 @@ target_link_libraries(RasaMicHalPlugin PRIVATE
 add_custom_command(TARGET RasaMicHalPlugin POST_BUILD
     COMMAND codesign --force --sign - "${CMAKE_CURRENT_BINARY_DIR}/RasaMicHalPlugin.driver"
     VERBATIM)
+
+add_executable(RasaMicHalPluginSelfTest SelfTest.cpp)
+target_link_libraries(RasaMicHalPluginSelfTest PRIVATE
+    "-framework CoreFoundation"
+    "-framework CoreAudio")
