@@ -137,11 +137,11 @@ the Android SDK variables.
 
 ### iOS
 
-On macOS, after building the native library:
+On macOS with Xcode 27.2, after building the native library:
 
 ```sh
 dotnet workload install maui
-dotnet build src/RasaMic.Client -f net11.0-ios -r ios-arm64 -c Release -p:EnableCodeSigning=false -p:NoDSymUtil=true
+dotnet build src/RasaMic.Client -f net11.0-ios -r ios-arm64 -c Release -p:EnableCodeSigning=false -p:NoDSymUtil=true -p:NoSymbolStrip=true
 ```
 
 This is an unsigned compile. Signing, provisioning, device install, and TestFlight

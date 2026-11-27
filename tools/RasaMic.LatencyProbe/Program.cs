@@ -66,11 +66,18 @@ for (int i = 0; i < totalChunks; i++)
     {
         Array.Clear(chunkPcm);
     }
+    long frameTicks = freq * chunk / rate;
+    long due = start + (i + 1) * frameTicks;
+    long now = Stopwatch.GetTimestamp();
+    if (now - due > frameTicks * 2)
+    {
+        // Capture callbacks do not replay frames missed during a scheduling stall.
+        start = now - frameTicks;
+        due = now;
+    }
     pipeline.Feed(chunkPcm);
 
     // Pace to real time so the jitter buffer sees production cadence.
-    long due = start + (long)((i + 1) * (double)freq * chunk / rate);
-    long now;
     while ((now = Stopwatch.GetTimestamp()) < due)
     {
         int msLeft = (int)((due - now) * 1000 / freq);

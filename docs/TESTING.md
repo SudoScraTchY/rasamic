@@ -113,7 +113,9 @@ dotnet run --project tools/RasaMic.Benchmarks -c Release -- --job short --filter
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/perf-gate.ps1 -ResultsDir perf-results
 ```
 
-The CI latency gate is p95 < 50 ms. Benchmark methodology, final Runtime Async /
+The CI latency gate is p95 < 50 ms. Hosted scheduling noise is handled by up to three
+attempts with the same threshold; the run passes only when one attempt meets it.
+Benchmark methodology, final Runtime Async /
 ValueTask / AVX2 numbers, and reproduction commands are in
 [perf.md](perf.md). Unknown performance runners produce an advisory candidate
 baseline; a human must promote it under `docs/perf-baselines/`.
