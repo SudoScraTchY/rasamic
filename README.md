@@ -260,15 +260,17 @@ dotnet run --project tools/RasaMic.LatencyProbe            # 20 bursts, ~12 s
 dotnet run --project tools/RasaMic.LatencyProbe -- 1200    # 10-min soak
 ```
 
-Measured on Windows x64 localhost: **median 15.5 ms, p95 31.8 ms** (CI gate:
-p95 < 50 ms). The 80 ms figure used by earlier notes is retired.
+Measured on Windows x64 localhost with the corrected-cadence probe: three runs at
+**median 28.3–31.4 ms, p95 40.6–44.7 ms** (CI gate: p95 < 50 ms). The probe drops
+frames missed during scheduling stalls instead of creating an artificial backlog;
+earlier catch-up-harness numbers are not comparable.
 10-minute soak (1200 bursts): 1200/1200 detected, p95 16.2 ms, no managed-heap
 growth. Sender hot path allocates 0 bytes over a 60 s bench
 (`RASA_ALLOC_BENCH_SECONDS=60 dotnet test tests/RasaMic.IntegrationTests`).
 WAV mode adds sample-accurate cross-correlation of the fed burst against the
-backend's PCM: `dotnet run --project tools/RasaMic.LatencyProbe -- 30 50 out.wav`
-(first-burst feed→write 20.5 ms = the initial 2-packet rebuffer; steady-state
-rides the ~16 ms median). Module benchmarks, per-stage budgets, live p95
+backend's PCM: `dotnet run --project tools/RasaMic.LatencyProbe -- 30 50 out.wav`.
+Compare it only within the same probe revision because recording adds backend work.
+Module benchmarks, per-stage budgets, live p95
 telemetry and the CI regression gate: `docs/perf.md`.
 Acoustic end-to-end measurement (PC click → phone → stream back) requires the
 phone rig and is pending.

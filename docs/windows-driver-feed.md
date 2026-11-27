@@ -91,12 +91,14 @@ Read-only inspection of two sources, per plan:
   The IOCTL result reports `RingFillBytes`; the backend runs the shared
   `DriftSlipPolicy` (20 ms fill target, ≤1-frame slip per 10 s, 1 s in
   emergency) — drop skips a frame, repeat re-sends the previous one.
-- CI: `.github/workflows/driver.yml` (WDK via choco, x64 test-sign,
-  ARM64 validation-off per build.bat). Remote snapshot 2026-11-26: the workflow
-  exists but has zero runs; the pinned fork commit matches remote `main`.
+- CI: `.github/workflows/driver.yml` uses the preinstalled WDK to build unsigned
+  x64/ARM64 packages. Package verification is skipped because the hosted WDK lacks
+  a usable x86 `InfVerif.dll`. [Run 45946452255](https://github.com/SudoScraTchY/rasamic/actions/runs/45946452255)
+  passed on `abf3dea`; both `.sys` PE architectures were inspected.
 - Install: `tools/scripts/install-driver.ps1` (self-signed cert, trust,
   signtool, pnputil + devcon). **User must enable testsigning + reboot
   first**; devcon.exe must sit next to the script or be on PATH (WDK tool).
 
-Not verified locally: no WDK on this machine — kernel code compiles only
-in CI. v2 shared-memory feed deferred until v1 passes Driver Verifier.
+Not verified: package installation, test-signing, and Driver Verifier. CI proves
+compilation and packaging only. v2 shared-memory feed remains deferred until v1
+passes Driver Verifier.

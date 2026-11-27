@@ -6,7 +6,9 @@
 
 **Driver fork:** <https://github.com/SudoScraTchY/rasamic-windows-driver>
 
-**Baseline HEAD:** `27d03b0f38abb20a9405cd337c4889d34db01422`
+**Code revision:** `abf3deaeb37f551746c7799955cd9e1248177d95`
+
+**Driver revision:** `156ebaf90fe35558b652e9918fcbc77207f6bfb6`
 
 **License:** MIT, Rasa Contributors
 
@@ -20,67 +22,78 @@ release guides linked below.
 Rasa is an open-source WO Mic alternative: an Android/iOS phone captures audio,
 runs native noise suppression/AGC, encodes Opus, and streams encrypted audio by
 default to a Windows/macOS/Linux server. The PC can explicitly select plain audio
-for a trusted LAN. The server exposes monitor output or a virtual
-microphone backend.
+for a trusted LAN. The server exposes monitor output or a virtual microphone
+backend.
 
-The strongest verified path today is **Android -> Windows/Linux server -> monitor
-or PipeWire**. The managed Release suite is green, Android Release builds cleanly,
-and the performance workflow passes. The project is **not release-ready** because
-the macOS HAL compile patch still needs a CI rerun, the Windows driver workflow has
-never run, `main` has no branch protection, and there are no tags or releases.
+The strongest verified path is **Android -> Windows/Linux server -> monitor or
+PipeWire**. The managed Release suite is green, Android and unsigned iOS device
+builds pass, native matrices pass, and all six server packages build. The Windows
+driver CI produces real x64 and ARM64 kernel binaries.
 
-The working tree also contains a completed Runtime Async / ValueTask / AVX2
-performance pass, the latency/plain-mode pass, this documentation pass, and the
-external-cable backend. They are **uncommitted**; remote `main` remains at `27d03b0`.
+The project is **not release-ready**. macOS factory/property calls pass, but hosted
+`coreaudiod` discovery remains advisory. Driver installation, Driver Verifier,
+production signing, iOS signing/device capture, Bluetooth, Wi-Fi Direct, and
+acoustic latency still need hardware or account-gated evidence. No tag or GitHub
+Release has been published.
 
 ## Platform and feature status
 
 | Area | Implemented | Verified | Gap / blocker |
 |---|---|---|---|
-| Windows server + GUI | Yes | 184/184 Release tests on Windows; GUI headless tests; server-controlled plain mode and independent PC-speaker monitoring; local Velopack install/uninstall round-trip | External-cable audio roundtrip still needs a user-installed cable |
-| Windows virtual mic | External-cable backend plus IOCTL feed, kernel SPSC ring, user-mode driver backend | WASAPI endpoint enumeration and missing-cable failure verified; pinned fork matches remote `main` | `driver` workflow has zero runs; no Driver Verifier/install evidence |
-| Linux server | Yes | CI native x64/arm64 and managed tests pass; PipeWire source capture passes | Keep distro/package smoke coverage current |
-| macOS server | Managed front end + HAL writer/plugin | macOS managed CI job passes; HAL compiles on Xcode 26; Box publication added | Enumeration rerun pending on `macos-26` |
-| Android client | Wi-Fi, adb-reverse USB, foreground service, stereo Oboe, optional AudioRecord, discovery/reconnect | Native CI arm64/x86_64; Release build 0 warnings/errors; prior live Wi-Fi soak and capture-active bench; APK build job added | New Android app workflow awaits remote run; Bluetooth and Wi-Fi Direct need hardware verification |
-| iOS client | AVAudioEngine mono capture, USB tunnel code, pairing/UI | Unsigned Release compile has passed; on-device work not verified here | `macos-26` rerun pending; Apple account/device required |
-| Bluetooth | Android client + PC RFCOMM listener | Listener startup on Windows | Phone-to-PC audio pending paired hardware |
+| Windows server + GUI | Yes | 184/184 Release tests; headless GUI tests; plain mode; independent PC-speaker monitoring; Velopack install/uninstall round-trip | External-cable audio round-trip needs a user-installed cable |
+| Windows virtual mic | External-cable backend plus IOCTL feed, kernel SPSC ring, user-mode backend | Unsigned x64/ARM64 driver packages build; PE architectures inspected; WASAPI enumeration and missing-cable failure verified | Test-signing/install, Driver Verifier, and production WHQL/WHCP signing remain |
+| Linux server | Yes | Native x64/arm64 and managed CI pass; PipeWire source capture passes | Keep distro/package smoke coverage current |
+| macOS server | Managed front end + HAL writer/plugin | Managed CI passes; HAL compiles; ad-hoc-signed factory/property self-test passes | Hosted enumeration/ring spikes are advisory; real Mac validation remains |
+| Android client | Wi-Fi, adb-reverse USB, foreground service, stereo Oboe, optional AudioRecord, discovery/reconnect | Native arm64/x86_64 and Release APK job pass; prior live Wi-Fi soak and capture-active bench | Bluetooth and Wi-Fi Direct need hardware verification |
+| iOS client | AVAudioEngine mono capture, USB tunnel code, pairing/UI | Unsigned device-arm64 Release compile passes with Xcode 27.2 | Apple signing, provisioning, device install, and real capture remain |
+| Bluetooth | Android client + PC RFCOMM listener | Listener startup on Windows | Phone-to-PC audio needs paired hardware |
 | Multi-client | Single-session `Busy` behavior and forward-compatible `sessionId` | Integration tests | Mixing intentionally deferred; see [multi-client-eval.md](docs/multi-client-eval.md) |
 
 ## Evidence snapshot
 
-### Local, current working tree — 2026-11-27
+### Local — 2026-11-27
 
 | Check | Result | Evidence |
 |---|---|---|
-| `dotnet test RasaMic.slnx -c Release` | **184 passed, 0 failed, 0 skipped** | `.tools/ci-cd-full-test.log`; all five test projects, .NET 11.0.100 Windows |
-| `rasamicd --list-outputs` | Real WASAPI playback/capture IDs enumerated | Local Windows CLI run; VB-CABLE not installed |
-| Android -> Windows monitor Wi-Fi smoke | Plain and encrypted modes both connected; final paced run ~100 pkt/s, 0% loss, ~10 ms RTT, 10 ms write interval, 20–70 ms dwell, zero drops, 22 ms device buffer; reconnect clean | `.tools/rasamic-v2-final.log`, `.tools/rasamic-v2-final.png` (ignored) |
-| Android Release with `M:\Android\Sdks` + JDK 17 | **Build succeeded, 0 warnings, 0 errors** | `.tools/ci-cd-android-build.log` (ignored) |
-| BenchmarkDotNet DefaultJob | **22 cases, 0 B allocated; no >10% regressions** | `.tools/perf-refresh/`; refreshed local and hosted-runner baselines under `docs/perf-baselines/` |
-| Workflow syntax | **actionlint 1.7.12 passed** | `go run github.com/rhysd/actionlint/cmd/actionlint@latest -color` |
-| SDK | .NET **11.0.100** | `global.json`, `dotnet --version` |
-| Workloads | android, ios, maccatalyst, maui-android, maui-windows installed | `dotnet workload list` |
-| Submodules | All six present; Windows driver pinned at `9b6e18b` | `git submodule status` |
+| `dotnet test RasaMic.slnx -c Release` | **184 passed, 0 failed, 0 skipped** | `.tools/ci-final-test.log`; .NET 11.0.100 Windows |
+| Corrected latency probe, three consecutive runs | Median **28.3–31.4 ms**, p95 **40.6–44.7 ms**, max **46.6 ms** | `.tools/perf-probe-after.log` |
+| Previous catch-up probe, same command | Median **66.9 ms**, p95 **107.3 ms** | `.tools/perf-probe-before.log`; demonstrated artificial backlog |
+| Android Release with explicit SDK + JDK 17 | **Build succeeded, 0 warnings, 0 errors** | `.tools/ci-cd-android-build.log` (ignored) |
+| BenchmarkDotNet DefaultJob | **22 cases, 0 B allocated; no >10% regressions** | `.tools/perf-refresh/`; baselines under `docs/perf-baselines/` |
+| Perf comparator synthetic checks | Noisy 1.12x point mean passes; clear 1.30x regression fails | `.tools/perf-gate-test/` (ignored) |
+| Workflow syntax | **actionlint 1.7.12 passed** | `.github/actionlint.yaml` plus workflow files |
+| Driver package architectures | x64 `8664`; ARM64 `AA64` | Final CI `.sys` artifacts inspected with `dumpbin` |
 
 The Android build needs `ANDROID_HOME` and `ANDROID_SDK_ROOT` set explicitly on
 this machine. The default `%LOCALAPPDATA%\Android\Sdk` has only licenses and
 platform-tools, while `M:\Android\Sdks` contains build-tools, platforms, CMake, and
 NDK.
 
-### Remote, commit `27d03b0` — checked 2026-11-27
+### Remote
 
-| Workflow | State | Detail |
+Final verification on code/workflow revision `abf3dea`:
+
+| Workflow | Result | Run |
 |---|---|---|
-| `ci` | **Failing** | [Run 45775478409](https://github.com/SudoScraTchY/rasamic/actions/runs/45775478409): four jobs pass; `macos-hal-spike` fails at `Build HAL plugin` |
-| `native` | **Cancelled** | [Run 45775478486](https://github.com/SudoScraTchY/rasamic/actions/runs/45775478486): Linux/Android native jobs pass; macOS jobs cancelled |
-| `ios` | **Cancelled** | [Run 45775478430](https://github.com/SudoScraTchY/rasamic/actions/runs/45775478430): no steps executed |
-| `perf` | **Passing** | [Run 45775478420](https://github.com/SudoScraTchY/rasamic/actions/runs/45775478420); hosted candidate baseline promoted in this tree |
-| `driver` | **No runs** | Trigger now includes the gitlink, `.gitmodules`, and workflow edits |
-| `release` | **No runs** | Workflow now creates a missing tag release before uploading artifacts |
+| `ci` | Passed all five jobs | [45946396112](https://github.com/SudoScraTchY/rasamic/actions/runs/45946396112) |
+| `native` | Passed six ABI/platform jobs and `android-app` | [45946396054](https://github.com/SudoScraTchY/rasamic/actions/runs/45946396054) |
+| `ios` | Passed unsigned device-arm64 build | [45946396085](https://github.com/SudoScraTchY/rasamic/actions/runs/45946396085) |
+| `perf` | Passed; latency p95 34.3 ms | [45946396059](https://github.com/SudoScraTchY/rasamic/actions/runs/45946396059) |
+| `driver` | Passed x64 and ARM64 unsigned packages | [45946452255](https://github.com/SudoScraTchY/rasamic/actions/runs/45946452255) |
+| `release` | Passed all six RID packages | [45946455576](https://github.com/SudoScraTchY/rasamic/actions/runs/45946455576) |
 
-`main` has no branch protection. There are no GitHub Releases. The local workflow,
-HAL, benchmark, and documentation fixes are uncommitted, so none of these remote
-results include them yet.
+`main` branch protection is active with 14 required checks, one approving review,
+stale-review dismissal, conversation resolution, no force-push/deletion, and an
+administrator emergency bypass. Full policy: [TESTING.md](docs/TESTING.md).
+Documentation-only follow-up commits do not change the tested binaries.
+
+Driver artifact SHA-256 from run `45946452255`:
+
+- x64 `.sys`: `3676d88fe8ece6eb99b9969c5e0afc24eb19ccbbf2c9f48616854d9d5d41e173`
+- ARM64 `.sys`: `f1475b000d48d20aa23e63f045822afdb18510e7de90d737b17922d406b7a4f4`
+
+The release workflow was exercised with `workflow_dispatch`; it uploaded packages
+but did not create a tag or GitHub Release.
 
 ### Earlier device/package evidence
 
@@ -90,8 +103,7 @@ results include them yet.
   10 ms frame. Earlier 21/42 ms numbers were doze-state artifacts.
 - Linux PipeWire tone capture verified end-to-end; CI repeats the smoke.
 - Velopack Windows GUI installer passed a local silent install/uninstall round-trip.
-- iOS unsigned Release compile passed previously; the current remote iOS workflow
-  is cancelled and no device signing/TestFlight evidence exists.
+- iOS unsigned compilation is not device signing, provisioning, or TestFlight evidence.
 
 Details: [TESTING.md](docs/TESTING.md), [perf.md](docs/perf.md),
 [design.md](docs/design.md).
@@ -118,8 +130,7 @@ reject a changed key outright.
 Important boundaries:
 
 - Audio is encrypted/authenticated by default. `--plain` or the GUI toggle removes both protections for a trusted LAN; post-handshake control JSON is plaintext in both modes. `SessionReady` authenticates the negotiated mode before sending starts.
-- Sender enables Opus in-band FEC, but the receiver currently uses PLC for gaps;
-  FEC recovery is not implemented.
+- Sender enables Opus in-band FEC, but the receiver currently uses PLC for gaps; FEC recovery is not implemented.
 - `CaptureTsUs` is transmitted but not used for server scheduling.
 - One active session per server. A future mixer belongs before the backend.
 - Native callbacks must stay non-blocking; backend writes are single-writer.
@@ -127,18 +138,16 @@ Important boundaries:
 
 Full source map and invariants: [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## Completed performance pass — uncommitted
-
-The current working tree includes:
+## Completed performance pass
 
 - Runtime Async enabled centrally for desktop `net11.0`.
 - `ValueTask` outer framing APIs with a `Task` inner exact-read helper. Full
   `ValueTask` conversion benchmarked slower and was rejected.
 - Fused AVX2 post-gain + limiter with TensorPrimitives fallback and scalar-contract
   tests for NaN, signed zero, infinities, slices, and tails.
-- Permanent BenchmarkDotNet comparison cases and updated performance notes.
-
-Final measurements:
+- Permanent BenchmarkDotNet comparison cases and per-runner baselines.
+- Uncertainty-aware CI regression gate: current mean minus two standard errors
+  must exceed the baseline by more than 10%.
 
 | Case | Before | After |
 |---|---:|---:|
@@ -148,11 +157,9 @@ Final measurements:
 | Hybrid suspended framing | Task: 1,263.88 ns / 1,047 B | 1,287.98 ns / 1,079 B |
 
 The suspended hybrid delta is small relative to network I/O; the synchronous fast
-path saves a Task allocation. Post-gain “before” is the original ShortRun baseline
-and “after” is the final DefaultJob run; the side-by-side candidate comparison is
-in [perf.md](docs/perf.md). Reproduce from that file.
+path saves a Task allocation. Reproduce and compare from [perf.md](docs/perf.md).
 
-## Latency and server-controlled plain mode — uncommitted
+## Latency and server-controlled plain mode
 
 The 1–1.5 s delay had three application-side causes: a 96,000-sample monitor FIFO
 (up to 2 s mono), burst decode/write with no playout clock, and stale phone packets
@@ -170,15 +177,17 @@ sent during reconnect. AES-GCM was not the bottleneck.
   remains the default; plain mode has no audio authentication or confidentiality.
 - **Hear phone on this PC** independently controls speaker monitoring, including
   alongside VB-CABLE or the Windows driver.
+- The latency probe drops stale cadence after scheduling stalls instead of
+  replaying overdue frames and creating an artificial backlog.
 
 Live final evidence: ~100 pkt/s, 0% loss, ~10 ms RTT, 10 ms write interval,
 20–70 ms jitter dwell, zero output drops, 22 ms WASAPI device buffer. Acoustic
 round-trip latency still needs a physical tap/loopback rig.
 
-## External-cable backend — uncommitted
+## External-cable backend
 
-Windows can now use an externally installed signed audio cable instead of the
-project driver:
+Windows can use an externally installed signed audio cable instead of the project
+driver:
 
 - `ExternalCableBackend` writes to a selected playback endpoint and validates it
   before listening.
@@ -190,46 +199,34 @@ project driver:
 - `doctor` checks for both CABLE Input and CABLE Output.
 
 Verified locally: native/managed Release builds, 184/184 tests, real WASAPI
-enumeration, and the missing-cable error path. Not verified: an actual
-VB-CABLE audio roundtrip, because the vendor driver is not installed on this
-machine. Rasa does not bundle or install third-party drivers.
+enumeration, and the missing-cable error path. Not verified: an actual VB-CABLE
+audio roundtrip, because the vendor driver is not installed on this machine.
+Rasa does not bundle or install third-party drivers.
 
 ## Blockers and risks
 
 ### P0 — release blockers
 
-1. **macOS CI still needs a verified rerun.**
-   - `native.yml` and `ios.yml` now use `macos-26`; release uses `macos-26` for
-     arm64 and `macos-15-intel` for x64.
-   - The 19 Xcode 26.6 HAL compile errors were traced to `REFIID` byte comparison,
-     removed property names, duplicate latency selectors, and the current
-     `GetPropertyData` signature. The source now compiles on Xcode 26.
-   - The first remote run compiled and installed the plugin but did not enumerate
-     it. The plug-in now publishes the acquired Box object required by coreaudiod.
-   - Acceptance: enumeration spike passes and the ring-readable spike is evaluated
-     rather than ignored.
+1. **macOS virtual-mic support is not verified.**
+   - The HAL compiles, is ad-hoc signed, and passes direct factory/property calls.
+   - Hosted `coreaudiod` does not enumerate it; enumeration and ring spikes are
+     advisory and must not be presented as supported-device evidence.
+   - Acceptance: enumeration and non-silent ring capture pass on a supported Mac.
 
-2. **The project's branded Windows driver has no CI or install evidence.**
-   - The external-cable backend avoids this blocker for users who accept a
-     separate vendor installation.
-   - `driver.yml` exists but has zero runs.
+2. **The branded Windows driver has no install/Driver Verifier evidence.**
+   - CI builds unsigned x64/ARM64 packages and skips package verification because
+     the hosted WDK lacks a usable x86 `InfVerif.dll`.
    - Local test-signing is blocked by Secure Boot policy on the maintainer PC.
    - A manually trusted root does not replace kernel Code Integrity or production
      WHQL/WHCP signing.
-   - Acceptance: x64/ARM64 workflow passes; test-signed package installs on a
-     test-signing VM; Driver Verifier runs clean; production signing path is
-     documented separately.
+   - Acceptance: signed package installs on a test-signing VM; Driver Verifier runs
+     clean; production signing path is documented separately.
 
 3. **No release has been cut.**
-   - No tags, releases, or successful `release` workflow.
-   - Acceptance: every gate in [RELEASE.md](docs/RELEASE.md) passes on the release
-     commit, artifacts are inspected, and platform claims match evidence.
-
-4. **`main` has no branch protection.**
-   - Failed checks do not block a merge or direct push.
-   - Acceptance: require PR review and the CI, native, perf, Android, driver, and
-     release checks that apply to the changed paths. This is a remote repository
-     setting and is not changed by this local pass.
+   - No tags or GitHub Releases exist. Successful dispatch packaging is not a
+     published release.
+   - Acceptance: every applicable gate in [RELEASE.md](docs/RELEASE.md) passes,
+     artifacts are inspected, and platform claims match evidence.
 
 ### P1 — product/verification gaps
 
@@ -237,35 +234,31 @@ machine. Rasa does not bundle or install third-party drivers.
   macOS, and hardware.
 - Bluetooth phone-to-PC audio and Wi-Fi Direct streaming need physical two-device
   tests. Compile/listener success is not end-to-end evidence.
-- Acoustic end-to-end latency (PC click -> phone -> stream back) still needs the
-  phone rig; localhost pipeline latency is not acoustic latency.
+- Acoustic end-to-end latency still needs the phone rig; localhost pipeline latency
+  is not acoustic latency.
 - Control traffic is plaintext after pairing; decide whether protocol v2 should
   authenticate it before claiming full control-channel confidentiality.
 - FEC is enabled on the encoder but not decoded on the receiver.
 - Multi-client mixing is intentionally deferred; see
   [multi-client-eval.md](docs/multi-client-eval.md).
 - Windows helper scripts contain machine-specific `M:\...` paths. Prefer portable
-  CMake commands on new machines or make the scripts path-independent in a
-  separate focused change.
+  CMake commands on new machines or make the scripts path-independent separately.
 - `IVirtualMicBackend` documentation still says “ACX”; the actual Windows driver
   is PortCls WaveRT/KMDF. Correct the comment when touching that interface.
 
 ## Ordered next agenda
 
-1. **Repair macOS CI.** Update runner labels, port the HAL plugin to the current
-   Xcode 26 interface, remove duplicate property cases, and get both spikes to run.
-2. **Run the driver workflow.** Resolve WDK build issues, then validate x64/ARM64
-   packages. Keep test-signing/reboot as a user action; do not bypass Secure Boot.
-3. **Review and land the uncommitted performance + latency + documentation changes.**
-   Run the full suite and benchmarks on the exact commit, then commit/push only
-   when the user asks.
-4. **Re-run Android device regression.** Use the new Release APK, verify Wi-Fi,
-   USB, reconnect, background service, stereo, and memory on the Redmi Note 11.
-5. **Close hardware-only gaps.** Bluetooth, Wi-Fi Direct, iPhone capture, and
+1. **Validate macOS on real hardware.** Diagnose hosted `coreaudiod` discovery,
+   then prove enumeration and ring capture before claiming a macOS virtual mic.
+2. **Validate the Windows driver package.** Keep test-signing/reboot as a user
+   action; do not bypass Secure Boot. Install on a VM and run Driver Verifier.
+3. **Re-run Android device regression.** Verify Wi-Fi, USB, reconnect, background
+   service, stereo, and memory on the Redmi Note 11.
+4. **Close hardware-only gaps.** Bluetooth, Wi-Fi Direct, iPhone capture, and
    acoustic latency each need a recorded device test.
-6. **Cut v0.1.0 only after release gates pass.** Follow [RELEASE.md](docs/RELEASE.md);
-   do not tag merely because local tests are green.
-7. **Post-1.0:** evaluate multi-client mixing and control-channel authentication.
+5. **Cut v0.1.0 only after release gates pass.** Follow [RELEASE.md](docs/RELEASE.md);
+   do not tag merely because CI is green.
+6. **Post-1.0:** evaluate multi-client mixing and control-channel authentication.
 
 ## First session checklist for the next maintainer
 
@@ -292,65 +285,9 @@ Then:
 7. Do not drive the desktop UI. Use CLI, logs, registry/file edits, and headless
    tests; phone ADB automation is allowed.
 
-## Working-tree notes at handoff time
-
-Modified implementation/performance files:
-
-- `Directory.Build.props`
-- `src/RasaMic.Audio/PcmPostGain.cs`
-- `src/RasaMic.Audio/AudioPipeline.cs`
-- `src/RasaMic.Audio/AudioDevice.cs`
-- `src/RasaMic.Audio/AudioDeviceEnumerator.cs`
-- `src/RasaMic.Audio/MonitorOutput.cs`
-- `src/RasaMic.Audio/NativeMethods.cs`
-- `src/RasaMic.Client.Core/ClientSession.cs`
-- `src/RasaMic.Protocol/ControlFraming.cs`
-- `src/RasaMic.Protocol/ControlMessages.cs`
-- `src/RasaMic.Core/Jitter/JitterBuffer.cs`
-- `src/RasaMic.Client/MainPage.xaml.cs`
-- `src/RasaMic.Server/RasaMicServer.cs`
-- `src/RasaMic.Server/IVirtualMicBackend.cs`
-- `src/RasaMic.Server/Backends/MonitorBackend.cs`
-- `src/RasaMic.Server/Backends/SelfMonitoringBackend.cs`
-- `src/RasaMic.Server/Backends/ExternalCableBackend.cs`
-- `src/RasaMic.Server.Cli/Program.cs`
-- `src/RasaMic.Server.Cli/Doctor.cs`
-- `src/RasaMic.Server.App/ViewModels/MainWindowViewModel.cs`
-- `src/RasaMic.Server.App/MainWindow.axaml`
-- `src/RasaMic.Server.App/Services/SettingsStore.cs`
-- `native/rasamic-native/include/rasamic_native.h`
-- `native/rasamic-native/src/monitor.cpp`
-- `native/rasamic-native/src/monitor_stub.cpp`
-- `native/rasamic-native/src/pipeline.cpp`
-- `native/rasamic-native/CMakeLists.txt`
-- `tests/RasaMic.Audio.Tests/PcmPostGainTests.cs`
-- `tests/RasaMic.Audio.Tests/MonitorOutputTests.cs`
-- `tests/RasaMic.Audio.Tests/PipelineTests.cs`
-- `tests/RasaMic.Core.Tests/JitterBufferTests.cs`
-- `tests/RasaMic.IntegrationTests/ExternalCableBackendTests.cs`
-- `tests/RasaMic.IntegrationTests/LoopbackTests.cs`
-- `tests/RasaMic.IntegrationTests/SenderPacingTests.cs`
-- `tests/RasaMic.Protocol.Tests/ControlFramingTests.cs`
-- `tests/RasaMic.Server.App.Tests/HotkeyTests.cs`
-- `tests/RasaMic.Server.App.Tests/MainWindowTests.cs`
-- `tests/RasaMic.Server.App.Tests/SelfMonitoringBackendTests.cs`
-- `tools/RasaMic.Benchmarks/Program.cs`
-
-Modified/added documentation:
-
-- `README.md`
-- `docs/perf.md`
-- `docs/windows-driver-feed.md`
-- `docs/ARCHITECTURE.md`
-- `docs/DEVELOPMENT.md`
-- `docs/TESTING.md`
-- `docs/OPERATIONS.md`
-- `docs/RELEASE.md`
-- `HANDOFF.md`
-
-Expected unrelated submodule dirt: `native/third_party/rnnoise` contains downloaded
-model archives, `models/`, and generated `src/rnnoise_data*.c/h`. These are ignored
-local build inputs, not parent-repository changes.
+Expected submodule dirt: `native/third_party/rnnoise` may contain downloaded model
+archives, `models/`, and generated `src/rnnoise_data*.c/h`. These are ignored local
+build inputs, not parent-repository changes.
 
 ## Documentation map
 
@@ -381,7 +318,7 @@ local build inputs, not parent-repository changes.
 
 ## Handoff completeness checklist
 
-- [x] Current commit, remote state, and uncommitted scope recorded.
+- [x] Current code/driver revisions and remote state recorded.
 - [x] Implemented vs verified platform status separated.
 - [x] Architecture, protocol, security, and backend invariants documented.
 - [x] Build/test/benchmark commands and current counts recorded.
@@ -389,8 +326,8 @@ local build inputs, not parent-repository changes.
 - [x] README and contributor/operator/release guides completed.
 - [x] Next agenda ordered and tied to concrete evidence.
 - [x] Safety boundaries and user-only actions preserved.
-- [ ] macOS CI green.
-- [ ] Driver workflow and install/Driver Verifier evidence complete.
+- [ ] macOS enumeration and ring capture verified.
+- [ ] Driver install and Driver Verifier evidence complete.
 - [ ] Hardware-only mobile/transport checks complete.
 - [ ] Release gates passed and v0.1.0 published.
 

@@ -156,16 +156,43 @@ See [OPERATIONS.md](OPERATIONS.md) for smoke commands and known traps.
 
 ## CI snapshot
 
-Remote state for commit `596c0ac`, checked 2026-11-26:
+Remote state for code/workflow revision `abf3dea`, checked 2026-11-27:
 
 | Workflow | State | Scope |
 |---|---|---|
-| `ci` | Failing | Four jobs pass; `macos-hal-spike` fails compiling the HAL plugin |
-| `native` | Cancelled | Linux x64/arm64 and Android arm64/x86_64 pass; macOS/iOS jobs cancelled on `macos-14` |
-| `ios` | Cancelled | No steps executed on `macos-14` |
-| `perf` | Passing | Allocation, latency, benchmark, and baseline gates pass |
-| `driver` | No runs | Workflow exists but has never run |
-| `release` | No runs | Workflow exists; no tags or releases yet |
+| `ci` | Passing | [Run 45946396112](https://github.com/SudoScraTchY/rasamic/actions/runs/45946396112): all five jobs, including PipeWire capture and the required HAL factory self-test |
+| `native` | Passing | [Run 45946396054](https://github.com/SudoScraTchY/rasamic/actions/runs/45946396054): Linux x64/arm64, macOS arm64, iOS arm64, Android arm64/x86_64, and `android-app` |
+| `ios` | Passing | [Run 45946396085](https://github.com/SudoScraTchY/rasamic/actions/runs/45946396085): unsigned device-arm64 Release build with Xcode 27.2 |
+| `perf` | Passing | [Run 45946396059](https://github.com/SudoScraTchY/rasamic/actions/runs/45946396059): zero-allocation gate, latency p95 34.3 ms, benchmarks, and summary; the EPYC 9V74 runner produced an advisory candidate baseline |
+| `driver` | Passing | [Run 45946452255](https://github.com/SudoScraTchY/rasamic/actions/runs/45946452255): unsigned x64/ARM64 packages; architectures inspected |
+| `release` | Passing | [Run 45946455576](https://github.com/SudoScraTchY/rasamic/actions/runs/45946455576): all six server RID packages and both Windows installers |
 
-Do not describe the repository as fully green until the macOS and driver gates
-have run successfully.
+Hosted HAL enumeration and ring-readable steps are advisory. A green `ci` run proves
+the build and factory/property self-test, not that `coreaudiod` exposes a working
+macOS microphone. Driver and release workflows are intentionally not global required
+checks because they are path-filtered or manually/tag dispatched.
+
+## Main branch protection
+
+Verified through the GitHub API on 2026-11-27. `main` requires strict status checks
+for these 14 contexts:
+
+- `managed-tests`
+- `macos-managed-tests`
+- `windows-native-and-audio-tests`
+- `linux-native-and-tests`
+- `macos-hal-spike`
+- `build (linux-x64)`
+- `build (linux-arm64)`
+- `build (osx-arm64)`
+- `build (ios-arm64)`
+- `build (android-arm64)`
+- `build (android-x86_64)`
+- `android-app`
+- `perf-gates`
+- `build` (iOS workflow)
+
+The policy also requires one approving review, dismisses stale approvals, requires
+conversation resolution, and blocks force-pushes and branch deletion. Administrator
+enforcement is disabled so the solo maintainer can bypass the rules for emergency
+maintenance; normal pushes and PRs remain protected.

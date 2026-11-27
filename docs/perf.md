@@ -20,8 +20,8 @@ overdue frame; production capture callbacks do not replay missed frames. Earlier
 catch-up-harness numbers are not comparable. Capture and playback add platform latency
 on top.
 WAV mode (`rasamic-latencyprobe 30 50 out.wav`) cross-correlates the fed burst against
-the backend's PCM for sample-accurate numbers: first-burst feed→write 20.46 ms (the
-initial 2-packet rebuffer), sub-ms precision; steady-state bursts ride the ~16 ms median.
+the backend's PCM for sample-accurate numbers. Compare WAV and timestamp measurements
+only within the same probe revision; recording adds work to the backend.
 
 ## Current per-stage baseline — 2026-11-27
 

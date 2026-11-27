@@ -1,8 +1,12 @@
 # Release guide
 
-Current release state (2026-11-26): the public repository has **no tags, no
-GitHub Releases, and no successful `release` or `driver` workflow run**. Packaging
-scripts and workflows exist; they are not evidence of a published release.
+Current release state (2026-11-27): the public repository has **no tags and no
+GitHub Releases**. Manual `release` dispatch
+[45946455576](https://github.com/SudoScraTchY/rasamic/actions/runs/45946455576)
+packages all six server RIDs, and `driver` dispatch
+[45946452255](https://github.com/SudoScraTchY/rasamic/actions/runs/45946452255)
+builds unsigned x64/ARM64 packages. These runs are packaging evidence, not a
+published release or driver-install approval.
 
 ## Release gates
 
@@ -23,12 +27,14 @@ attached to the release issue/PR:
       is recorded for the chosen signing path.
 - [ ] README, user guide, HANDOFF, third-party notices, and platform status match
       the release.
-- [ ] `main` branch protection requires review and applicable CI/native/perf checks.
+- [x] `main` branch protection requires one review and 14 stable CI/native/perf/mobile
+      checks; path-filtered driver and tag-only release checks remain manual gates.
 - [ ] No secrets, certificates, model archives, build output, or `.tools/` files
       are staged.
 - [ ] Release artifacts are downloaded and inspected, not only workflow-green.
 
-The macOS rerun, driver, and branch-protection gates are currently open.
+The macOS device, driver-install, signing, hardware, and publication gates remain
+open until their evidence is recorded.
 
 ## Version and tag
 
@@ -60,6 +66,20 @@ force-push `main` or move a published tag without a documented recovery plan.
 
 The workflow uses `macos-26` for arm64 and `macos-15-intel` for x64. The retired
 `macos-14` jobs were cancelled before executing any steps.
+
+Dispatch [45946455576](https://github.com/SudoScraTchY/rasamic/actions/runs/45946455576)
+passed on `abf3dea`. All six archives were downloaded and checked for the CLI, native
+library, license, README, and third-party notices. Windows x64/ARM64 CLI and native
+DLL PE headers were also verified as `8664`/`AA64`.
+
+| Archive | SHA-256 |
+|---|---|
+| `rasamic-0.1.0-linux-x64.zip` | `9c43cd03978027ee33b60abb7d7fd28c9fbf6ff542525fdb48211d732e5aa5cc` |
+| `rasamic-0.1.0-linux-arm64.zip` | `288a79cb728c1820990395f2e71dbeb3a477dbf45eb18d5c8dc426cec3d58068` |
+| `rasamic-0.1.0-osx-x64.zip` | `386f0e1a00db7da060b4f09a157c58b0bcfc27cf55260fdc9c3b3bdf949af7a9` |
+| `rasamic-0.1.0-osx-arm64.zip` | `2fd199aa3444b65823f03e5972dadcf0c6553c7a6cbe096ac2dff358ff505df8` |
+| `rasamic-0.1.0-win-x64.zip` | `9d5f775bdf9009ea3ddabf173d21341bf1db44a7186acf327a84107d121f305e` |
+| `rasamic-0.1.0-win-arm64.zip` | `76dbd4ff6c5e8d6be157c66bac0b8b1f4f13da9e07a4df1166fbf4b678bd65e4` |
 
 ## Local packaging
 
