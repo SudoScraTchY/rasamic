@@ -23,6 +23,8 @@ jobs:
         platform: [x64, ARM64]
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Verify preinstalled WDK
         shell: pwsh
