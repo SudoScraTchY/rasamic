@@ -8,5 +8,6 @@
     <AnalysisMode>None</AnalysisMode>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
+    <Features Condition="'$(TargetFramework)' == 'net11.0'">runtime-async=on</Features>
   </PropertyGroup>
 </Project>

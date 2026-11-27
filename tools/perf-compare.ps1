@@ -22,8 +22,14 @@ function Read-Benches([string]$path) {
 
 if ($MergeDir) {
     $benches = Read-Benches $MergeDir
-    @{ Benchmarks = $benches } | ConvertTo-Json -Depth 12 | Set-Content $MergeOut -Encoding UTF8
-    Write-Host "merged $($benches.Count) benchmarks -> $MergeOut"
+    $compact = @($benches | ForEach-Object {
+        [pscustomobject]@{
+            FullName = $_.FullName
+            Statistics = [pscustomobject]@{ Mean = $_.Statistics.Mean }
+        }
+    })
+    @{ Benchmarks = $compact } | ConvertTo-Json -Depth 4 | Set-Content $MergeOut -Encoding UTF8
+    Write-Host "merged $($compact.Count) benchmarks -> $MergeOut"
     exit 0
 }
 

@@ -1,0 +1,64 @@
+﻿{
+    "Benchmarks":  [
+                       {
+                           "FullName":  "CryptoBench.Seal_320B",
+                           "Statistics":  {
+                                              "Mean":  282.5630187988281
+                                          }
+                       },
+                       {
+                           "FullName":  "CryptoBench.Open_320B",
+                           "Statistics":  {
+                                              "Mean":  321.67894045511883
+                                          }
+                       },
+                       {
+                           "FullName":  "DecodeBench.Decode_10ms",
+                           "Statistics":  {
+                                              "Mean":  16533.50321451823
+                                          }
+                       },
+                       {
+                           "FullName":  "DecodeBench.Plc_10ms",
+                           "Statistics":  {
+                                              "Mean":  337.2063636779785
+                                          }
+                       },
+                       {
+                           "FullName":  "JitterBench.PushNext_Steady",
+                           "Statistics":  {
+                                              "Mean":  76.2039562066396
+                                          }
+                       },
+                       {
+                           "FullName":  "JitterBench.PushNext_10pctLoss",
+                           "Statistics":  {
+                                              "Mean":  22.847477595011394
+                                          }
+                       },
+                       {
+                           "FullName":  "PipelineBench.Feed_10ms_Mono_32k",
+                           "Statistics":  {
+                                              "Mean":  1176722.9817708333
+                                          }
+                       },
+                       {
+                           "FullName":  "PipelineBench.Feed_10ms_Stereo_256k_NsAgc",
+                           "Statistics":  {
+                                              "Mean":  2324071.09375
+                                          }
+                       },
+                       {
+                           "FullName":  "PostGainBench.Gain_480",
+                           "Statistics":  {
+                                              "Mean":  126.62939230600993
+                                          }
+                       },
+                       {
+                           "FullName":  "PostGainBench.Gain_960",
+                           "Statistics":  {
+                                              "Mean":  243.70795885721842
+                                          }
+                       }
+                   ]
+}
