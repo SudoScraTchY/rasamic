@@ -22,11 +22,11 @@ jobs:
             rid: linux-arm64
             cmake-args: ''
             native: build-linux-arm64/librasamic_native.so
-          - os: macos-14
+          - os: macos-26
             rid: osx-arm64
             cmake-args: ''
             native: build-osx-arm64/librasamic_native.dylib
-          - os: macos-14
+          - os: macos-15-intel
             rid: osx-x64
             cmake-args: -DCMAKE_OSX_ARCHITECTURES=x86_64
             native: build-osx-x64/librasamic_native.dylib

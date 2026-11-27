@@ -40,9 +40,9 @@ external-cable backend. They are **uncommitted**; remote `main` remains at `27d0
 | Windows server + GUI | Yes | 184/184 Release tests on Windows; GUI headless tests; server-controlled plain mode and independent PC-speaker monitoring; local Velopack install/uninstall round-trip | External-cable audio roundtrip still needs a user-installed cable |
 | Windows virtual mic | External-cable backend plus IOCTL feed, kernel SPSC ring, user-mode driver backend | WASAPI endpoint enumeration and missing-cable failure verified; pinned fork matches remote `main` | `driver` workflow has zero runs; no Driver Verifier/install evidence |
 | Linux server | Yes | CI native x64/arm64 and managed tests pass; PipeWire source capture passes | Keep distro/package smoke coverage current |
-| macOS server | Managed front end + HAL writer/plugin | macOS managed CI job passes; HAL source patched for current SDK | macOS HAL rerun pending; `macos-14` native job cancelled |
+| macOS server | Managed front end + HAL writer/plugin | macOS managed CI job passes; HAL compiles on Xcode 26; Box publication added | Enumeration rerun pending on `macos-26` |
 | Android client | Wi-Fi, adb-reverse USB, foreground service, stereo Oboe, optional AudioRecord, discovery/reconnect | Native CI arm64/x86_64; Release build 0 warnings/errors; prior live Wi-Fi soak and capture-active bench; APK build job added | New Android app workflow awaits remote run; Bluetooth and Wi-Fi Direct need hardware verification |
-| iOS client | AVAudioEngine mono capture, USB tunnel code, pairing/UI | Unsigned Release compile has passed; on-device work not verified here | `macos-14` CI cancelled; Apple account/macOS/device required |
+| iOS client | AVAudioEngine mono capture, USB tunnel code, pairing/UI | Unsigned Release compile has passed; on-device work not verified here | `macos-26` rerun pending; Apple account/device required |
 | Bluetooth | Android client + PC RFCOMM listener | Listener startup on Windows | Phone-to-PC audio pending paired hardware |
 | Multi-client | Single-session `Busy` behavior and forward-compatible `sessionId` | Integration tests | Mixing intentionally deferred; see [multi-client-eval.md](docs/multi-client-eval.md) |
 
@@ -199,13 +199,15 @@ machine. Rasa does not bundle or install third-party drivers.
 ### P0 — release blockers
 
 1. **macOS CI still needs a verified rerun.**
-   - `native.yml` and `ios.yml` use `macos-14`; those jobs were cancelled.
+   - `native.yml` and `ios.yml` now use `macos-26`; release uses `macos-26` for
+     arm64 and `macos-15-intel` for x64.
    - The 19 Xcode 26.6 HAL compile errors were traced to `REFIID` byte comparison,
      removed property names, duplicate latency selectors, and the current
-     `GetPropertyData` signature. The source is patched, but Windows cannot compile
-     the macOS target locally.
-   - Acceptance: supported runner labels, plugin compiles, enumeration spike
-     passes, ring-readable spike is evaluated rather than ignored.
+     `GetPropertyData` signature. The source now compiles on Xcode 26.
+   - The first remote run compiled and installed the plugin but did not enumerate
+     it. The plug-in now publishes the acquired Box object required by coreaudiod.
+   - Acceptance: enumeration spike passes and the ring-readable spike is evaluated
+     rather than ignored.
 
 2. **The project's branded Windows driver has no CI or install evidence.**
    - The external-cable backend avoids this blocker for users who accept a

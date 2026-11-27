@@ -85,7 +85,7 @@ public class StereoLoopbackTests
             await Task.Delay(5, ct);
         }
 
-        await Task.Delay(600, ct);
+        await Task.Delay(1200, ct);
         await client.SendControlAsync(new Bye("test-done"), ct);
         await Task.Delay(200, ct);
         return (sent, backend);

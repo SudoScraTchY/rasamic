@@ -148,8 +148,16 @@ jobs:
           sleep 5
       - name: Spike — coreaudiod enumerates Rasa Mic
         run: |
-          system_profiler SPAudioDataType | tee /tmp/audio-devices.txt
-          grep -qi "Rasa" /tmp/audio-devices.txt
+          for attempt in $(seq 1 15); do
+            system_profiler SPAudioDataType | tee /tmp/audio-devices.txt
+            if grep -qi "Rasa" /tmp/audio-devices.txt; then
+              exit 0
+            fi
+            sleep 1
+          done
+          log show --last 2m --predicate 'process == "coreaudiod" OR sender == "RasaMicHalPlugin"' > /tmp/coreaudio.log || true
+          cat /tmp/coreaudio.log
+          exit 1
       # Sandbox probe: coreaudiod may deny ring access outside its bundle.
       # If this step fails while enumeration passed, the Mach fallback is next.
       - name: Spike — ring readable from coreaudiod

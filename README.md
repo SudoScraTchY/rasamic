@@ -21,9 +21,9 @@ phone into a low-latency wireless microphone for Windows, macOS, and Linux
 > without test-signing. The project's own Windows driver v1 feed is implemented in
 > the [driver fork](https://github.com/SudoScraTchY/rasamic-windows-driver), but its
 > CI workflow has not run and installation remains signing/Secure Boot gated. The
-> macOS HAL compile failure is patched and awaits a CI rerun. iOS device signing and
-> TestFlight need an Apple account/macOS; the `macos-14` native/iOS jobs were
-> cancelled. Bluetooth phone audio and Wi-Fi Direct streaming still need hardware
+> macOS HAL now compiles on Xcode 26; device enumeration and iOS runner checks are
+> being rerun on supported `macos-26` labels. iOS device signing and TestFlight need
+> an Apple account/device. Bluetooth phone audio and Wi-Fi Direct streaming still need hardware
 > verification. See [HANDOFF.md](HANDOFF.md) for the evidence and next actions.
 
 ## Documentation

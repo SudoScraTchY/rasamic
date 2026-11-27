@@ -57,8 +57,8 @@ force-push `main` or move a published tag without a documented recovery plan.
 | osx-x64 | `librasamic_native.dylib` | Self-contained `rasamicd` zip |
 | osx-arm64 | `librasamic_native.dylib` | Self-contained `rasamicd` zip |
 
-The workflow currently uses `macos-14`; those jobs were cancelled on the last
-run. Move to a supported runner before releasing macOS artifacts.
+The workflow uses `macos-26` for arm64 and `macos-15-intel` for x64. The retired
+`macos-14` jobs were cancelled before executing any steps.
 
 ## Local packaging
 

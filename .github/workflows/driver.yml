@@ -24,12 +24,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # WDK MSBuild targets + headers/libs. The runner already has VS2022
-      # Build Tools and the Windows SDK; the WDK package wires the
-      # WindowsKernelModeDriver10.0 toolset into MSBuild.
-      - name: Install WDK
+      - name: Verify preinstalled WDK
         shell: pwsh
-        run: choco install windowsdriverkit -y --no-progress
+        run: |
+          $wdk = "${env:ProgramFiles(x86)}\Windows Kits\10"
+          if (-not (Test-Path "$wdk\Include") -or -not (Test-Path "$wdk\Lib")) {
+            throw "The windows-2022 runner does not contain the expected WDK headers and libraries."
+          }
+          Get-ChildItem "$wdk\Include" -Directory | Select-Object -ExpandProperty Name
 
       - name: Build driver
         shell: pwsh

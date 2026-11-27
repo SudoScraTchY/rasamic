@@ -27,6 +27,7 @@ namespace {
 constexpr AudioObjectID kPluginObjectID = kAudioObjectPlugInObject; // 1
 constexpr AudioObjectID kDeviceObjectID = 2;
 constexpr AudioObjectID kInputStreamObjectID = 3;
+constexpr AudioObjectID kBoxObjectID = 4;
 
 constexpr Float64 kSampleRate = 48000.0;
 constexpr UInt32 kChannels = 1;
@@ -308,6 +309,21 @@ bool HasStreamProperty(const AudioObjectPropertyAddress& a)
     }
 }
 
+bool HasBoxProperty(const AudioObjectPropertyAddress& a)
+{
+    switch (a.mSelector)
+    {
+        case kAudioObjectPropertyBaseClass:
+        case kAudioObjectPropertyClass:
+        case kAudioObjectPropertyOwner:
+        case kAudioBoxPropertyAcquired:
+        case kAudioBoxPropertyDeviceList:
+            return true;
+        default:
+            return false;
+    }
+}
+
 Boolean STDMETHODCALLTYPE HasProperty(AudioServerPlugInDriverRef, AudioObjectID object, pid_t, const AudioObjectPropertyAddress* address)
 {
     if (address == nullptr)
@@ -322,6 +338,7 @@ Boolean STDMETHODCALLTYPE HasProperty(AudioServerPlugInDriverRef, AudioObjectID 
                 case kAudioObjectPropertyOwner:
                 case kAudioObjectPropertyCustomPropertyInfoList:
                 case kAudioPlugInPropertyDeviceList:
+                case kAudioPlugInPropertyBoxList:
                     return true;
                 default:
                     return false;
@@ -330,6 +347,8 @@ Boolean STDMETHODCALLTYPE HasProperty(AudioServerPlugInDriverRef, AudioObjectID 
             return HasDeviceProperty(object, *address);
         case kInputStreamObjectID:
             return HasStreamProperty(*address);
+        case kBoxObjectID:
+            return HasBoxProperty(*address);
         default:
             return false;
     }
@@ -386,7 +405,12 @@ OSStatus STDMETHODCALLTYPE GetPropertyDataSize(AudioServerPlugInDriverRef ref, A
             *outSize = sizeof(Float64);
             return noErr;
         case kAudioPlugInPropertyDeviceList:
+        case kAudioPlugInPropertyBoxList:
+        case kAudioBoxPropertyDeviceList:
             *outSize = sizeof(AudioObjectID);
+            return noErr;
+        case kAudioBoxPropertyAcquired:
+            *outSize = sizeof(UInt32);
             return noErr;
         case kAudioObjectPropertyCustomPropertyInfoList:
             *outSize = 0;
@@ -438,12 +462,13 @@ OSStatus STDMETHODCALLTYPE GetPropertyData(AudioServerPlugInDriverRef ref, Audio
         case kAudioObjectPropertyClass:
             return CopyUInt32(object == kPluginObjectID ? kAudioPlugInClassID
                               : object == kDeviceObjectID ? kAudioDeviceClassID
-                                                          : kAudioStreamClassID,
+                              : object == kBoxObjectID ? kAudioBoxClassID
+                                                      : kAudioStreamClassID,
                               ioSize, outData);
         case kAudioObjectPropertyOwner:
             return CopyUInt32(object == kPluginObjectID ? kAudioObjectUnknown
-                              : object == kDeviceObjectID ? kPluginObjectID
-                                                          : kDeviceObjectID,
+                              : object == kDeviceObjectID || object == kBoxObjectID ? kPluginObjectID
+                                                                                  : kDeviceObjectID,
                               ioSize, outData);
         case kAudioObjectPropertyName:
             return CopyCFString(CFSTR("Rasa Mic"), ioSize, outData);
@@ -484,6 +509,12 @@ OSStatus STDMETHODCALLTYPE GetPropertyData(AudioServerPlugInDriverRef ref, Audio
         case kAudioStreamPropertyTerminalType:
             return CopyUInt32('mic ', ioSize, outData);
         case kAudioPlugInPropertyDeviceList:
+            return CopyUInt32(kDeviceObjectID, ioSize, outData);
+        case kAudioPlugInPropertyBoxList:
+            return CopyUInt32(kBoxObjectID, ioSize, outData);
+        case kAudioBoxPropertyAcquired:
+            return CopyUInt32(1, ioSize, outData);
+        case kAudioBoxPropertyDeviceList:
             return CopyUInt32(kDeviceObjectID, ioSize, outData);
         case kAudioObjectPropertyCustomPropertyInfoList:
             if (ioSize != nullptr)

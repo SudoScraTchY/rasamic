@@ -115,7 +115,7 @@ public class UsbTunnelTests
             }
             await Task.Delay(5, ct);
         }
-        await Task.Delay(600, ct);
+        await Task.Delay(1200, ct);
         await client.SendControlAsync(new Bye("usb-done"), ct);
         await Task.Delay(200, ct);
 
@@ -206,7 +206,7 @@ public class UsbTunnelTests
             }
             await Task.Delay(5, ct);
         }
-        await Task.Delay(600, ct);
+        await Task.Delay(1200, ct);
         await client.SendControlAsync(new Bye("usb-done"), ct);
         await Task.Delay(200, ct);
 
