@@ -44,12 +44,16 @@ foreach ($c in $cur) {
         Write-Host "new  $($c.FullName)"
         continue
     }
-    $ratio = $c.Statistics.Mean / $m
-    if ($ratio -gt $Threshold) {
-        Write-Host ("REGRESSION {0}: {1:N2}x baseline" -f $c.FullName, $ratio)
+    $mean = $c.Statistics.Mean
+    $stdErr = if ($null -eq $c.Statistics.StandardError) { 0 } else { $c.Statistics.StandardError }
+    $pointRatio = $mean / $m
+    # Nanosecond benchmarks need uncertainty-aware gating; a noisy point mean is not a regression.
+    $lowerRatio = [Math]::Max(0, $mean - 2 * $stdErr) / $m
+    if ($lowerRatio -gt $Threshold) {
+        Write-Host ("REGRESSION {0}: {1:N2}x baseline (lower confidence; point {2:N2}x)" -f $c.FullName, $lowerRatio, $pointRatio)
         $fail = 1
     } else {
-        Write-Host ("ok   {0} {1:N2}x" -f $c.FullName, $ratio)
+        Write-Host ("ok   {0} point {1:N2}x, lower confidence {2:N2}x" -f $c.FullName, $pointRatio, $lowerRatio)
     }
 }
 exit $fail

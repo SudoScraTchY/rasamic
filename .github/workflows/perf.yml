@@ -56,7 +56,7 @@ jobs:
             printf '\n## %s\n\n' "$(basename "$report")" >> "$GITHUB_STEP_SUMMARY"
             cat "$report" >> "$GITHUB_STEP_SUMMARY"
           done
-      - name: Perf regression gate (>10% vs this runner's baseline fails)
+      - name: Perf regression gate (>10% lower-confidence regression fails)
         run: powershell -NoProfile -ExecutionPolicy Bypass -File tools/perf-gate.ps1 -ResultsDir perf-results
       - uses: actions/upload-artifact@v4
         with:

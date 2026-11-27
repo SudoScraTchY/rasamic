@@ -27,7 +27,9 @@ initial 2-packet rebuffer), sub-ms precision; steady-state bursts ride the ~16 m
 
 Host: i3-12100F (AVX2), Windows 10 19045, .NET 11.0.0, BenchmarkDotNet 0.14.0 DefaultJob.
 The 22-case suite is recorded in `docs/perf-baselines/12th-gen-intel-r-core-tm-i3-12100f.json`.
-`perf.yml` fails >10% mean regression via `tools/perf-compare.ps1`; per-runner baselines
+`perf.yml` fails when the current mean minus two standard errors is >10% above the
+per-runner baseline via `tools/perf-compare.ps1`; this keeps nanosecond-scale noise from
+failing the gate without ignoring a clear regression. Per-runner baselines
 are selected by `tools/perf-gate.ps1`. The GitHub-hosted AMD EPYC baseline is also committed,
 so that runner now enforces comparisons instead of emitting only an advisory candidate.
 Benchmark reports are attached as artifacts and published in the Actions step summary.

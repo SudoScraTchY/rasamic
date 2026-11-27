@@ -12,12 +12,13 @@ attached to the release issue/PR:
 - [ ] `dotnet test RasaMic.slnx -c Release` — 184/184 on the release commit.
 - [ ] Native builds pass for every shipped server RID and mobile ABI.
 - [ ] `perf` workflow passes: zero-allocation gate, p95 <50 ms, benchmarks, enforced
-      per-runner baseline, and published step summary.
+      per-runner baseline with uncertainty-aware regression checks, and published step summary.
 - [ ] `native.yml` Android app job builds the Release APK with zero warnings/errors,
       and the candidate APK is smoke-tested on a real device.
 - [ ] iOS unsigned compile passes on macOS; device signing is separately verified
       when an Apple account is available.
-- [ ] macOS HAL compiles and the enumeration/ring spikes pass on a supported runner.
+- [ ] macOS HAL compiles and its factory/property self-test passes; hosted enumeration
+      and ring spikes remain advisory until verified on a supported Mac.
 - [ ] Windows driver workflow runs for x64 and ARM64; Driver Verifier/install test
       is recorded for the chosen signing path.
 - [ ] README, user guide, HANDOFF, third-party notices, and platform status match
@@ -97,10 +98,12 @@ The existing workflow proves only an unsigned build.
 
 ### Windows driver
 
-CI can test-sign for a test-signing machine. Production users need a valid
-production signature, normally WHQL/WHCP through the Hardware Dev Center. A
-self-signed certificate trusted on one development PC is not a production
-signing path and does not bypass Secure Boot.
+CI builds unsigned x64/ARM64 packages and skips package verification because the
+hosted WDK lacks a usable x86 `InfVerif.dll`. Test signing, installation on a
+test-signing VM, and Driver Verifier are separate gates. Production users need a
+valid production signature, normally WHQL/WHCP through the Hardware Dev Center. A
+self-signed certificate trusted on one development PC is not a production signing
+path and does not bypass Secure Boot.
 
 ## Post-release verification
 

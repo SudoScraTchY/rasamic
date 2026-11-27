@@ -18,13 +18,13 @@ phone into a low-latency wireless microphone for Windows, macOS, and Linux
 > on the current machine.
 >
 > Windows can use an externally installed signed audio cable (`rasamicd --cable`)
-> without test-signing. The project's own Windows driver v1 feed is implemented in
-> the [driver fork](https://github.com/SudoScraTchY/rasamic-windows-driver), but its
-> CI workflow has not run and installation remains signing/Secure Boot gated. The
-> macOS HAL now compiles on Xcode 26; device enumeration and iOS runner checks are
-> being rerun on supported `macos-26` labels. iOS device signing and TestFlight need
-> an Apple account/device. Bluetooth phone audio and Wi-Fi Direct streaming still need hardware
-> verification. See [HANDOFF.md](HANDOFF.md) for the evidence and next actions.
+> without test-signing. The project's own Windows driver CI builds unsigned x64 and
+> ARM64 packages; installation remains signing/Secure Boot gated. The macOS HAL
+> factory/property self-test passes, but hosted `coreaudiod` enumeration remains
+> advisory and is not claimed as verified device support. iOS device signing and
+> TestFlight need an Apple account/device. Bluetooth phone audio and Wi-Fi Direct
+> streaming still need hardware verification. See [HANDOFF.md](HANDOFF.md) for the
+> evidence and next actions.
 
 ## Documentation
 

@@ -28,7 +28,8 @@ go run github.com/rhysd/actionlint/cmd/actionlint@latest -color
 ```
 
 The Windows native job runs the GUI tests, and `native.yml` has a separate Android
-APK job. Remote workflow results still need to be checked after the changes land.
+APK job. Remote results below are tied to explicit commits; local green tests are
+not a substitute for runner evidence.
 
 An initial full build run had one timing-sensitive `StatsTests` packet-loss
 failure; the isolated rerun, a full `--no-build` rerun, and the final full build
@@ -117,7 +118,8 @@ The CI latency gate is p95 < 50 ms. Hosted scheduling noise is handled by up to 
 attempts with the same threshold; the run passes only when one attempt meets it.
 Benchmark methodology, final Runtime Async /
 ValueTask / AVX2 numbers, and reproduction commands are in
-[perf.md](perf.md). Unknown performance runners produce an advisory candidate
+[perf.md](perf.md). A benchmark fails only when its mean minus two standard errors is
+more than 10% above the committed runner baseline. Unknown performance runners produce an advisory candidate
 baseline; a human must promote it under `docs/perf-baselines/`.
 
 ## Mobile build verification
