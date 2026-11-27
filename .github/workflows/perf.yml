@@ -39,7 +39,10 @@ jobs:
       - name: Publish benchmark summary
         shell: bash
         run: |
-          for report in perf-results/*-report-github.md; do
+          shopt -s nullglob
+          reports=(perf-results/results/*-report-github.md)
+          test "${#reports[@]}" -gt 0
+          for report in "${reports[@]}"; do
             printf '\n## %s\n\n' "$(basename "$report")" >> "$GITHUB_STEP_SUMMARY"
             cat "$report" >> "$GITHUB_STEP_SUMMARY"
           done

@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   package:
+    name: package (${{ matrix.rid }})
     strategy:
       fail-fast: false
       matrix:
@@ -32,17 +33,24 @@ jobs:
             native: build-osx-x64/librasamic_native.dylib
           - os: windows-latest
             rid: win-x64
-            cmake-args: -G "Visual Studio 17 2022" -A x64
-            native: build-win-x64/Release/rasamic_native.dll
+            arch: x64
+            cmake-args: -G Ninja
+            native: build-win-x64/rasamic_native.dll
           - os: windows-latest
             rid: win-arm64
-            cmake-args: -G "Visual Studio 17 2022" -A ARM64
-            native: build-win-arm64/Release/rasamic_native.dll
+            arch: arm64
+            cmake-args: -G Ninja
+            native: build-win-arm64/rasamic_native.dll
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      - name: Windows compiler
+        if: startsWith(matrix.os, 'windows')
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.arch }}
       - name: Linux deps (ALSA for miniaudio)
         if: startsWith(matrix.os, 'ubuntu')
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev ninja-build zip

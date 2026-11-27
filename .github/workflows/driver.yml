@@ -17,8 +17,10 @@ on:
 
 jobs:
   build:
+    name: build (${{ matrix.platform }})
     runs-on: windows-2022
     strategy:
+      fail-fast: false
       matrix:
         platform: [x64, ARM64]
     steps:
@@ -34,6 +36,25 @@ jobs:
             throw "The windows-2022 runner does not contain the expected WDK headers and libraries."
           }
           Get-ChildItem "$wdk\Include" -Directory | Select-Object -ExpandProperty Name
+
+      - name: Restore InfVerif task DLL
+        shell: pwsh
+        run: |
+          $wdk = "${env:ProgramFiles(x86)}\Windows Kits\10"
+          $target = Join-Path $wdk 'build\10.0.26100.0\bin\x86\InfVerif.dll'
+          if (Test-Path $target) { exit 0 }
+          $package = Join-Path $env:RUNNER_TEMP 'microsoft.windows.wdk.x86.10.0.26100.4204.nupkg'
+          $extract = Join-Path $env:RUNNER_TEMP 'wdk-infverif'
+          Invoke-WebRequest -Uri 'https://api.nuget.org/v3-flatcontainer/microsoft.windows.wdk.x86/10.0.26100.4204/microsoft.windows.wdk.x86.10.0.26100.4204.nupkg' -OutFile $package
+          $hash = (Get-FileHash $package -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -ne '477a9ffc9c793601e0763bb56b3309014122448382d00a482ab08cf8247159c9') {
+            throw "WDK package checksum mismatch."
+          }
+          Expand-Archive -Path $package -DestinationPath $extract -Force
+          $source = Join-Path $extract 'c\build\10.0.26100.0\bin\x64\infverif.dll'
+          if (-not (Test-Path $source)) { throw "The WDK package does not contain InfVerif.dll." }
+          New-Item -ItemType Directory -Force -Path (Split-Path $target) | Out-Null
+          Copy-Item $source $target -Force
 
       - name: Build driver
         shell: pwsh

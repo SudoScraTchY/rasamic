@@ -138,7 +138,7 @@ void rm_capture_destroy(void* h) {
     delete c;
 }
 
-/* 0 omni, 1 subcardioid, 2 cardioid, 3 hypercardioid (AVAudioSessionPolarPattern).
+/* 0 omni, 1 subcardioid, 2 cardioid, 3 hypercardioid (not exposed on iOS).
  * Returns 0 on success, -1 when the current input has no polar patterns. */
 int32_t rm_capture_set_polar(void* h, int32_t pattern) {
     auto* c = static_cast<Capture*>(h);
@@ -156,7 +156,7 @@ int32_t rm_capture_set_polar(void* h, int32_t pattern) {
         case 0: polar = AVAudioSessionPolarPatternOmnidirectional; break;
         case 1: polar = AVAudioSessionPolarPatternSubcardioid; break;
         case 2: polar = AVAudioSessionPolarPatternCardioid; break;
-        case 3: polar = AVAudioSessionPolarPatternHypercardioid; break;
+        case 3: return -1;
         default: return -1;
     }
     if (![source.supportedPolarPatterns containsObject:polar])
