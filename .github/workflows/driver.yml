@@ -37,25 +37,6 @@ jobs:
           }
           Get-ChildItem "$wdk\Include" -Directory | Select-Object -ExpandProperty Name
 
-      - name: Restore InfVerif task DLL
-        shell: pwsh
-        run: |
-          $wdk = "${env:ProgramFiles(x86)}\Windows Kits\10"
-          $target = Join-Path $wdk 'build\10.0.26100.0\bin\x86\InfVerif.dll'
-          if (Test-Path $target) { exit 0 }
-          $package = Join-Path $env:RUNNER_TEMP 'microsoft.windows.wdk.x86.10.0.26100.4204.nupkg'
-          $extract = Join-Path $env:RUNNER_TEMP 'wdk-infverif'
-          Invoke-WebRequest -Uri 'https://api.nuget.org/v3-flatcontainer/microsoft.windows.wdk.x86/10.0.26100.4204/microsoft.windows.wdk.x86.10.0.26100.4204.nupkg' -OutFile $package
-          $hash = (Get-FileHash $package -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($hash -ne '477a9ffc9c793601e0763bb56b3309014122448382d00a482ab08cf8247159c9') {
-            throw "WDK package checksum mismatch."
-          }
-          Expand-Archive -Path $package -DestinationPath $extract -Force
-          $source = Join-Path $extract 'c\build\10.0.26100.0\bin\x64\infverif.dll'
-          if (-not (Test-Path $source)) { throw "The WDK package does not contain InfVerif.dll." }
-          New-Item -ItemType Directory -Force -Path (Split-Path $target) | Out-Null
-          Copy-Item $source $target -Force
-
       - name: Build driver
         shell: pwsh
         working-directory: drivers/windows
@@ -63,6 +44,8 @@ jobs:
           $msbuild = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
             -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
           $args = @('VirtualAudioDriver.sln', '/p:Configuration=Release', "/p:Platform=${{ matrix.platform }}")
+          # The hosted WDK omits the x86 InfVerif task DLL; release validation runs separately.
+          $args += @('/p:SkipPackageVerification=true')
           if ('${{ matrix.platform }}' -eq 'ARM64') {
             # Mirror build.bat: ARM64 skips InfVerif/ApiValidator/signing.
             $args += @(

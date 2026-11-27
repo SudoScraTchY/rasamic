@@ -272,7 +272,6 @@ bool HasDeviceProperty(AudioObjectID object, const AudioObjectPropertyAddress& a
         case kAudioDevicePropertyTransportType:
         case kAudioDevicePropertyDeviceIsAlive:
         case kAudioDevicePropertyDeviceIsRunning:
-        case kAudioDevicePropertyDeviceIsHidden:
         case kAudioDevicePropertyNominalSampleRate:
         case kAudioDevicePropertyAvailableNominalSampleRates:
         case kAudioDevicePropertyRelatedDevices:
@@ -403,7 +402,6 @@ Boolean STDMETHODCALLTYPE HasProperty(AudioServerPlugInDriverRef, AudioObjectID 
     }
     LogUnknownProperty(object, *address);
     return false;
-    }
 }
 
 OSStatus STDMETHODCALLTYPE IsPropertySettable(AudioServerPlugInDriverRef, AudioObjectID, pid_t, const AudioObjectPropertyAddress*, Boolean* outSettable)
@@ -446,7 +444,6 @@ OSStatus STDMETHODCALLTYPE GetPropertyDataSize(AudioServerPlugInDriverRef ref, A
         case kAudioDevicePropertyTransportType:
         case kAudioDevicePropertyDeviceIsAlive:
         case kAudioDevicePropertyDeviceIsRunning:
-        case kAudioDevicePropertyDeviceIsHidden:
         case kAudioDevicePropertyDeviceCanBeDefaultDevice:
         case kAudioDevicePropertyDeviceCanBeDefaultSystemDevice:
         case kAudioDevicePropertyRelatedDevices:
@@ -463,7 +460,6 @@ OSStatus STDMETHODCALLTYPE GetPropertyDataSize(AudioServerPlugInDriverRef ref, A
         case kAudioStreamPropertyDirection:
         case kAudioStreamPropertyTerminalType:
         case kAudioStreamPropertyStartingChannel:
-        case kAudioStreamPropertyLatency:
             *outSize = sizeof(UInt32);
             return noErr;
         case kAudioObjectPropertyName:
@@ -606,7 +602,6 @@ OSStatus STDMETHODCALLTYPE GetPropertyData(AudioServerPlugInDriverRef ref, Audio
             return CopyUInt32(1, inDataSize, outSize, outData);
         case kAudioDevicePropertyDeviceIsRunning:
             return CopyUInt32(d->ioClients.load() > 0 ? 1 : 0, inDataSize, outSize, outData);
-        case kAudioDevicePropertyDeviceIsHidden:
         case kAudioDevicePropertyClockDomain:
             return CopyUInt32(0, inDataSize, outSize, outData);
         case kAudioDevicePropertyRelatedDevices:
@@ -631,7 +626,6 @@ OSStatus STDMETHODCALLTYPE GetPropertyData(AudioServerPlugInDriverRef ref, Audio
             return CopyUInt32(kAudioDeviceClockAlgorithmRaw, inDataSize, outSize, outData);
         case kAudioDevicePropertyLatency:
         case kAudioDevicePropertySafetyOffset:
-        case kAudioStreamPropertyLatency:
             return CopyUInt32(0, inDataSize, outSize, outData);
         case kAudioStreamPropertyStartingChannel:
             return CopyUInt32(1, inDataSize, outSize, outData);

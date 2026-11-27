@@ -34,12 +34,12 @@ jobs:
           - os: windows-latest
             rid: win-x64
             arch: x64
-            cmake-args: -G Ninja
+            cmake-args: -G Ninja -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl
             native: build-win-x64/rasamic_native.dll
           - os: windows-latest
             rid: win-arm64
-            arch: arm64
-            cmake-args: -G Ninja
+            arch: amd64_arm64
+            cmake-args: -G Ninja -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl
             native: build-win-arm64/rasamic_native.dll
     runs-on: ${{ matrix.os }}
     steps:
