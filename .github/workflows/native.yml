@@ -41,6 +41,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      - name: Select Xcode 27.2
+        if: matrix.name == 'ios-arm64'
+        run: |
+          sudo xcode-select --switch /Applications/Xcode_27.2.app
+          xcodebuild -version
       - name: Linux deps (ALSA for miniaudio)
         if: startsWith(matrix.os, 'ubuntu')
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev ninja-build

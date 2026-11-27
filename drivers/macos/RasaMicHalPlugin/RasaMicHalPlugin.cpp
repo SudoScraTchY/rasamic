@@ -12,6 +12,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFPlugInCOM.h>
 #include <mach/mach_time.h>
+#include <os/log.h>
 
 #include <atomic>
 #include <cstdio>
@@ -225,6 +226,7 @@ ULONG STDMETHODCALLTYPE Release(void* self)
 OSStatus STDMETHODCALLTYPE Initialize(AudioServerPlugInDriverRef ref, AudioServerPlugInHostRef host)
 {
     Self(ref)->host = host;
+    os_log(OS_LOG_DEFAULT, "Rasa Mic HAL initialized");
     return noErr;
 }
 
@@ -845,6 +847,7 @@ extern "C" void* RasaMicHalPluginFactory(CFAllocatorRef, CFUUIDRef typeUUID)
 {
     if (!CFEqual(typeUUID, kAudioServerPlugInTypeUUID))
         return nullptr;
+    os_log(OS_LOG_DEFAULT, "Rasa Mic HAL factory created");
     auto* d = new RasaDriver();
     d->interface = &kDriverInterface;
     CFPlugInAddInstanceForFactory(kRasaFactoryUUID);
