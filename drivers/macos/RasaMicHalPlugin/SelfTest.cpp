@@ -39,8 +39,9 @@ int main(int argc, char** argv)
         std::fprintf(stderr, "factory returned no driver interface\n");
         return 1;
     }
+    AudioServerPlugInDriverRef driverRef = &driver;
 
-    OSStatus status = driver->Initialize(driver, nullptr);
+    OSStatus status = driver->Initialize(driverRef, nullptr);
     if (status != noErr)
     {
         std::fprintf(stderr, "Initialize failed: %d\n", status);
@@ -50,8 +51,8 @@ int main(int argc, char** argv)
     const AudioObjectPropertyAddress deviceList = {
         kAudioPlugInPropertyDeviceList,
         kAudioObjectPropertyScopeGlobal,
-        kAudioObjectPropertyElementMaster};
-    if (!driver->HasProperty(driver, kAudioObjectPlugInObject, &deviceList))
+        kAudioObjectPropertyElementMain};
+    if (!driver->HasProperty(driverRef, kAudioObjectPlugInObject, 0, &deviceList))
     {
         std::fprintf(stderr, "device-list property is not supported\n");
         return 1;
@@ -59,7 +60,7 @@ int main(int argc, char** argv)
 
     UInt32 size = 0;
     status = driver->GetPropertyDataSize(
-        driver, kAudioObjectPlugInObject, 0, nullptr, &deviceList, &size);
+        driverRef, kAudioObjectPlugInObject, 0, &deviceList, 0, nullptr, &size);
     if (status != noErr || size != sizeof(AudioObjectID))
     {
         std::fprintf(stderr, "device-list size failed: status=%d size=%u\n", status, size);
@@ -68,7 +69,7 @@ int main(int argc, char** argv)
 
     AudioObjectID device = kAudioObjectUnknown;
     status = driver->GetPropertyData(
-        driver, kAudioObjectPlugInObject, 0, nullptr, &deviceList, size, &size, &device);
+        driverRef, kAudioObjectPlugInObject, 0, &deviceList, 0, nullptr, size, &size, &device);
     if (status != noErr || device != 2)
     {
         std::fprintf(stderr, "device-list data failed: status=%d device=%u\n", status, device);
@@ -76,7 +77,7 @@ int main(int argc, char** argv)
     }
 
     std::printf("HAL self-test passed: device=%u\n", device);
-    driver->Release(driver);
+    driver->Release(driverRef);
     dlclose(library);
     return 0;
 }
